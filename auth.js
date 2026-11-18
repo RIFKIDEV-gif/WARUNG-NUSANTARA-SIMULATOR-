@@ -1,179 +1,165 @@
 window.WNS = window.WNS || {};
 
-window.WNS.State = {
-  currentUser: null,
-  saveData: null,
-  deviceTier: "MEDIUM",
-  roomCode: "NUSANTARA-01"
-};
-
 window.WNS.Auth = (function () {
-  let mode = "login";
-  const STORAGE_KEY = "wns_3d_accounts_v1";
+  let mode = "login"; // "login" | "register"
 
-  // Hash FNV-1a ringan & aman di semua browser HP (HTTP maupun HTTPS)
-  function hashPassword(text) {
-    let hash = 2166136261;
-    for (let i = 0; i < text.length; i++) {
-      hash ^= text.charCodeAt(i);
-      hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
+  function getUsersKey() {
+    return (window.WNS.Config && window.WNS.Config.STORAGE_KEY_USERS) || "wns_rifkidev_users_v2";
+  }
+
+  function getActiveKey() {
+    return (window.WNS.Config && window.WNS.Config.STORAGE_KEY_ACTIVE) || "wns_rifkidev_active_v2";
+  }
+
+  function loadUsers() {
+    try {
+      const raw = localStorage.getItem(getUsersKey());
+      return raw ? JSON.parse(raw) : {};
+    } catch (e) {
+      return {};
     }
-    return (hash >>> 0).toString(16);
   }
 
-  function cloneDefaultSave() {
-    return JSON.parse(JSON.stringify(window.WNS.Config.DEFAULT_SAVE));
+  function saveUsers(users) {
+    try {
+      localStorage.setItem(getUsersKey(), JSON.stringify(users));
+      return true;
+    } catch (e) {
+      return false;
+    }
   }
 
-  function mergeWithDefaultSave(rawSave) {
-    const base = cloneDefaultSave();
-    if (!rawSave || typeof rawSave !== "object") return base;
+  function simpleHash(str) {
+    let h = 2166136261;
+    for (let i = 0; i < str.length; i++) {
+      h ^= str.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return "wns_" + (h >>> 0).toString(16);
+  }
+
+  function createDefaultSaveData() {
+    const starterStock = {
+      nasi_goreng: 3,
+      mie_ayam: 2,
+      es_teh: 4
+    };
     return {
-      ...base,
-      ...rawSave,
-      stock: { ...base.stock, ...(rawSave.stock || {}) },
-      unlockedCities: Array.isArray(rawSave.unlockedCities) && rawSave.unlockedCities.length
-        ? rawSave.unlockedCities
-        : ["jakarta"],
-      furniture: Array.isArray(rawSave.furniture) && rawSave.furniture.length
-        ? rawSave.furniture
-        : ["bangku_kayu"]
+      coins: 75000,
+      level: 1,
+      rep: 10,
+      cityId: "jaksel",
+      inventory: Object.assign({}, starterStock),
+      stock: Object.assign({}, starterStock),
+      decor: {
+        chair_wood: 1,
+        fan_stand: 1,
+        plant_pot: 1
+      },
+      matchesCompleted: 0,
+      servedCount: 0,
+      updatedAt: Date.now()
     };
   }
 
-  function setFeedback(message, isError) {
-    const el = document.getElementById("auth-feedback");
-    if (!el) return;
-    el.style.color = isError ? "#ef4444" : "#10b981";
-    el.textContent = message;
+  function normalizeSaveData(data) {
+    const base = createDefaultSaveData();
+    const merged = Object.assign({}, base, data || {});
+    const unifiedInv = merged.inventory || merged.stock || base.inventory;
+    merged.inventory = unifiedInv;
+    merged.stock = unifiedInv;
+    merged.decor = Object.assign({}, base.decor, merged.decor || {});
+    return merged;
   }
 
-  function switchMode(newMode) {
+  function showFeedback(msg, isError) {
+    const el = document.getElementById("auth-feedback");
+    if (!el) return;
+    el.textContent = msg;
+    el.style.color = isError ? "#f87171" : "#34d399";
+  }
+
+  function switchTab(newMode) {
     mode = newMode;
     const tabLogin = document.getElementById("tab-login");
-    const tabRegister = document.getElementById("tab-register");
+    const tabReg = document.getElementById("tab-register");
     const submitBtn = document.getElementById("btn-auth-submit");
 
     if (tabLogin) tabLogin.classList.toggle("active", mode === "login");
-    if (tabRegister) tabRegister.classList.toggle("active", mode === "register");
+    if (tabReg) tabReg.classList.toggle("active", mode === "register");
     if (submitBtn) {
       submitBtn.textContent = mode === "login" ? "Login & Masuk Game" : "Daftar & Mulai Main";
     }
-    setFeedback("", false);
+    showFeedback("", false);
   }
 
-  async function fetchAccount(username) {
-    const key = username.toLowerCase().trim();
-    const dbUrl = (window.WNS.Config.FIREBASE_DB_URL || "").trim().replace(/\/$/, "");
+  function launchGameFlow(username, saveData) {
+    window.WNS.State.currentUser = { username };
+    window.WNS.State.saveData = normalizeSaveData(saveData);
 
-    if (dbUrl) {
-      try {
-        const res = await fetch(`${dbUrl}/wns_users/${encodeURIComponent(key)}.json`);
-        if (res.ok) {
-          const data = await res.json();
-          if (data) return data;
-        }
-      } catch (e) {
-        // Lanjut ke penyimpanan lokal jika sedang offline
-      }
-    }
+    try {
+      localStorage.setItem(getActiveKey(), username);
+    } catch (e) {}
 
-    const localDb = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
-    return localDb[key] || null;
-  }
-
-  async function writeAccount(username, accountObj) {
-    const key = username.toLowerCase().trim();
-    const dbUrl = (window.WNS.Config.FIREBASE_DB_URL || "").trim().replace(/\/$/, "");
-
-    // Selalu simpan cadangan di memori HP agar tidak pernah hilang
-    const localDb = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
-    localDb[key] = accountObj;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(localDb));
-
-    if (dbUrl) {
-      try {
-        await fetch(`${dbUrl}/wns_users/${encodeURIComponent(key)}.json`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(accountObj)
-        });
-      } catch (e) {
-        // Tetap aman tersimpan secara lokal
+    if (window.WNS.Cutscene && typeof window.WNS.Cutscene.playSequence === "function") {
+      window.WNS.Cutscene.playSequence();
+    } else {
+      document.querySelectorAll(".screen").forEach((s) => s.classList.remove("active"));
+      const gameScreen = document.getElementById("game-screen");
+      if (gameScreen) gameScreen.classList.add("active");
+      if (window.WNS.Main && typeof window.WNS.Main.enterWorld === "function") {
+        window.WNS.Main.enterWorld();
       }
     }
   }
 
-  async function handleSubmit(event) {
-    event.preventDefault();
+  function handleFormSubmit(e) {
+    e.preventDefault();
     const userInput = document.getElementById("input-username");
     const passInput = document.getElementById("input-password");
-    const submitBtn = document.getElementById("btn-auth-submit");
 
     const username = (userInput ? userInput.value : "").trim();
     const password = passInput ? passInput.value : "";
 
-    if (!/^[a-zA-Z0-9_]{3,18}$/.test(username)) {
-      setFeedback("Username harus 3-18 karakter (huruf, angka, atau _).", true);
+    if (username.length < 3) {
+      showFeedback("Username minimal 3 huruf ya!", true);
       return;
     }
     if (password.length < 4) {
-      setFeedback("Password minimal 4 karakter.", true);
+      showFeedback("Password minimal 4 karakter ya!", true);
       return;
     }
 
-    if (submitBtn) submitBtn.disabled = true;
-    setFeedback("Memeriksa data akun...", false);
+    const users = loadUsers();
+    const key = username.toLowerCase();
+    const passHash = simpleHash(password);
 
-    const passHash = hashPassword(password);
-
-    try {
-      const existing = await fetchAccount(username);
-
-      if (mode === "register") {
-        if (existing) {
-          setFeedback("Username udah dipakai pemain lain, coba ganti.", true);
-          if (submitBtn) submitBtn.disabled = false;
-          return;
-        }
-
-        const freshSave = cloneDefaultSave();
-        const newAccount = {
-          username,
-          passHash,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          saveData: freshSave
-        };
-
-        await writeAccount(username, newAccount);
-        window.WNS.State.currentUser = newAccount;
-        window.WNS.State.saveData = freshSave;
-        setFeedback("Akun berhasil dibuat! Memuat studio...", false);
-      } else {
-        if (!existing) {
-          setFeedback("Username belum terdaftar. Pilih tab Daftar Akun dulu.", true);
-          if (submitBtn) submitBtn.disabled = false;
-          return;
-        }
-        if (existing.passHash !== passHash) {
-          setFeedback("Password salah! Coba periksa lagi.", true);
-          if (submitBtn) submitBtn.disabled = false;
-          return;
-        }
-
-        const loadedSave = mergeWithDefaultSave(existing.saveData);
-        existing.saveData = loadedSave;
-        window.WNS.State.currentUser = existing;
-        window.WNS.State.saveData = loadedSave;
-        setFeedback("Login berhasil! Memuat progres warung...", false);
+    if (mode === "register") {
+      if (users[key]) {
+        showFeedback("Username sudah dipakai! Pindah ke tab Login.", true);
+        return;
       }
-
-      if (submitBtn) submitBtn.disabled = false;
-      window.WNS.Cutscene.startSequence();
-    } catch (err) {
-      if (submitBtn) submitBtn.disabled = false;
-      setFeedback("Terjadi gangguan saat login. Coba lagi.", true);
+      const newSave = createDefaultSaveData();
+      users[key] = {
+        username,
+        passHash,
+        saveData: newSave
+      };
+      saveUsers(users);
+      showFeedback("Akun berhasil dibuat! Memuat game...", false);
+      setTimeout(() => launchGameFlow(username, newSave), 350);
+    } else {
+      const existing = users[key];
+      if (!existing) {
+        showFeedback("Akun belum terdaftar. Pilih tab Daftar Akun dulu!", true);
+        return;
+      }
+      if (existing.passHash !== passHash) {
+        showFeedback("Password salah! Coba cek lagi.", true);
+        return;
+      }
+      showFeedback("Login berhasil! Memuat warung...", false);
+      setTimeout(() => launchGameFlow(existing.username, existing.saveData), 350);
     }
   }
 
@@ -185,22 +171,35 @@ window.WNS.Auth = (function () {
     if (incrementMatch) {
       saveData.matchesCompleted = (saveData.matchesCompleted || 0) + 1;
     }
+    saveData.updatedAt = Date.now();
 
-    user.saveData = JSON.parse(JSON.stringify(saveData));
-    user.updatedAt = new Date().toISOString();
-
-    await writeAccount(user.username, user);
-    return true;
+    const users = loadUsers();
+    const key = user.username.toLowerCase();
+    if (!users[key]) {
+      users[key] = { username: user.username, passHash: "", saveData };
+    } else {
+      users[key].saveData = saveData;
+    }
+    return saveUsers(users);
   }
 
   function init() {
     const tabLogin = document.getElementById("tab-login");
-    const tabRegister = document.getElementById("tab-register");
+    const tabReg = document.getElementById("tab-register");
     const form = document.getElementById("auth-form");
 
-    if (tabLogin) tabLogin.addEventListener("click", () => switchMode("login"));
-    if (tabRegister) tabRegister.addEventListener("click", () => switchMode("register"));
-    if (form) form.addEventListener("submit", handleSubmit);
+    if (tabLogin) tabLogin.addEventListener("click", () => switchTab("login"));
+    if (tabReg) tabReg.addEventListener("click", () => switchTab("register"));
+    if (form) form.addEventListener("submit", handleFormSubmit);
+
+    // Isi otomatis username terakhir kalau pernah login
+    try {
+      const lastUser = localStorage.getItem(getActiveKey());
+      const userInput = document.getElementById("input-username");
+      if (lastUser && userInput && !userInput.value) {
+        userInput.value = lastUser;
+      }
+    } catch (e) {}
   }
 
   return {
