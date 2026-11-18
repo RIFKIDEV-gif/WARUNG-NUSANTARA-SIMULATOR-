@@ -1,322 +1,310 @@
 window.WNS = window.WNS || {};
 
 window.WNS.NPC = (function () {
-  const customers = [];
+  const activeCustomers = [];
   let spawnTimer = 0;
+  let isCooking = false; // Kunci anti-spam melayani pelanggan
   let idCounter = 1;
 
-  const SHIRT_COLORS = [0x38bdf8, 0xf43f5e, 0x10b981, 0xa855f7, 0xf97316, 0xeab308];
-  const SKIN_COLORS = [0xfcd5b5, 0xe0ac69, 0xc68642];
+  const OUTFIT_PRESETS = [
+    { outfitStyle: "suit", shirtHex: "#3b4252", hatType: "fedora", hatColor: 0x334155, skinColor: 0xf1c27d },
+    { outfitStyle: "suit", shirtHex: "#1e293b", hatType: "fedora", hatColor: 0x0f172a, skinColor: 0xe0ac69 },
+    { outfitStyle: "batik", shirtHex: "#92400e", accentHex: "#fbbf24", hatType: "none", skinColor: 0xd99b66 },
+    { outfitStyle: "batik", shirtHex: "#1d4ed8", accentHex: "#93c5fd", hatType: "cap", skinColor: 0xf1c27d }
+  ];
 
-  // Shared geometry ringan untuk hemat memori & draw call di HP
-  const sharedGeo = {
-    head: new THREE.BoxGeometry(0.32, 0.32, 0.32),
-    torso: new THREE.BoxGeometry(0.42, 0.54, 0.24),
-    limb: new THREE.BoxGeometry(0.14, 0.46, 0.14)
-  };
+  // Indikator status pesanan di atas kepala NPC
+  function createOrderBubble() {
+    const c = document.createElement("canvas");
+    c.width = 128;
+    c.height = 64;
+    const ctx = c.getContext("2d");
+    ctx.fillStyle = "#f59e0b";
+    ctx.beginPath();
+    ctx.roundRect(8, 8, 112, 48, 16);
+    ctx.fill();
+    ctx.fillStyle = "#090c14";
+    ctx.font = "bold 24px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("PESAN!", 64, 41);
 
-  function createCustomerMesh(enableShadows) {
-    const root = new THREE.Group();
-    const skinMat = new THREE.MeshStandardMaterial({
-      color: SKIN_COLORS[Math.floor(Math.random() * SKIN_COLORS.length)],
-      roughness: 0.65
-    });
-    const shirtMat = new THREE.MeshStandardMaterial({
-      color: SHIRT_COLORS[Math.floor(Math.random() * SHIRT_COLORS.length)],
-      roughness: 0.6
-    });
-    const pantsMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.8 });
-
-    const bodyPivot = new THREE.Group();
-    root.add(bodyPivot);
-
-    const torso = new THREE.Mesh(sharedGeo.torso, shirtMat);
-    torso.position.y = 0.75;
-    torso.castShadow = enableShadows;
-    bodyPivot.add(torso);
-
-    const head = new THREE.Mesh(sharedGeo.head, skinMat);
-    head.position.y = 1.22;
-    head.castShadow = enableShadows;
-    bodyPivot.add(head);
-
-    const leftLeg = new THREE.Mesh(sharedGeo.limb, pantsMat);
-    leftLeg.position.set(-0.11, 0.25, 0);
-    root.add(leftLeg);
-
-    const rightLeg = new THREE.Mesh(sharedGeo.limb, pantsMat);
-    rightLeg.position.set(0.11, 0.25, 0);
-    root.add(rightLeg);
-
-    return { root, bodyPivot, leftLeg, rightLeg };
+    const sprite = new THREE.Sprite(
+      new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c) })
+    );
+    sprite.scale.set(1.15, 0.58, 1);
+    sprite.position.set(0, 3.1, 0);
+    return sprite;
   }
 
-  function applySittingPose(npc, isSitting) {
-    if (isSitting) {
-      npc.bodyPivot.position.y = -0.22;
-      npc.leftLeg.position.set(-0.11, 0.36, 0.18);
-      npc.leftLeg.rotation.x = -Math.PI / 2;
-      npc.rightLeg.position.set(0.11, 0.36, 0.18);
-      npc.rightLeg.rotation.x = -Math.PI / 2;
-    } else {
-      npc.bodyPivot.position.y = 0;
-      npc.leftLeg.position.set(-0.11, 0.25, 0);
-      npc.leftLeg.rotation.x = 0;
-      npc.rightLeg.position.set(0.11, 0.25, 0);
-      npc.rightLeg.rotation.x = 0;
-    }
-  }
-
-  function pickAvailableIngredient() {
-    const saveData = window.WNS.State.saveData;
-    if (!saveData || !saveData.stock) return null;
-    const list = window.WNS.Config.INGREDIENTS;
-    const available = list.filter((item) => (saveData.stock[item.id] || 0) > 0);
-    if (available.length === 0) return null;
-    return available[Math.floor(Math.random() * available.length)];
-  }
-
-  function completeCustomerPayment(npc) {
-    const saveData = window.WNS.State.saveData;
-    if (!saveData) return;
-
-    const cityObj = window.WNS.Config.CITIES.find((c) => c.id === saveData.currentCity) || window.WNS.Config.CITIES[0];
-    const furnStats = window.WNS.Furniture ? window.WNS.Furniture.getStats() : { currentTemp: 32 };
-
-    let baseEarned = npc.mealValue || 100;
-    let bonusLabel = "";
-
-    // Bonus duduk di bangku / sofa VIP
-    if (npc.assignedSeat) {
-      if (npc.assignedSeat.isVip) {
-        baseEarned = Math.round(baseEarned * 1.35);
-        bonusLabel = " (Bonus Sofa VIP!)";
-      } else {
-        baseEarned = Math.round(baseEarned * 1.18);
-        bonusLabel = " (Bonus Duduk)";
+  function findFreeSeat(npcId) {
+    const seats = window.WNS.Furniture ? window.WNS.Furniture.getSeatPositions() : [];
+    for (let i = 0; i < seats.length; i++) {
+      if (!seats[i].occupiedBy) {
+        seats[i].occupiedBy = npcId;
+        return seats[i];
       }
     }
+    return null;
+  }
 
-    // Bonus ruangan dingin dari kipas angin / AC
-    if (furnStats.currentTemp <= 28) {
-      baseEarned += 25;
-      bonusLabel += " +Adem";
-    }
-
-    const totalCoins = Math.round(baseEarned * (cityObj.priceMultiplier || 1));
-    saveData.coins += totalCoins;
-    saveData.xp = (saveData.xp || 0) + 15;
-    saveData.rep = (saveData.rep || 0) + (npc.assignedSeat ? 2 : 1);
-
-    // Cek naik level otomatis
-    const nextLevelXp = saveData.level * 100;
-    if (saveData.xp >= nextLevelXp) {
-      saveData.xp -= nextLevelXp;
-      saveData.level += 1;
-      window.WNS.showToast(`LEVEL UP! Warung naik ke Level ${saveData.level}!`);
-    } else {
-      window.WNS.showToast(`Pelanggan bayar +Rp ${totalCoins.toLocaleString("id-ID")}${bonusLabel}`);
-    }
-
-    if (window.WNS.Main && typeof window.WNS.Main.refreshHud === "function") {
-      window.WNS.Main.refreshHud();
+  function releaseSeat(npcId) {
+    const seats = window.WNS.Furniture ? window.WNS.Furniture.getSeatPositions() : [];
+    for (let i = 0; i < seats.length; i++) {
+      if (seats[i].occupiedBy === npcId) {
+        seats[i].occupiedBy = null;
+      }
     }
   }
 
-  function spawnCustomer(forceEnter) {
-    const scene = window.WNS.Engine3D ? window.WNS.Engine3D.getScene() : null;
-    if (!scene) return;
+  function spawnCustomer() {
+    if (activeCustomers.length >= 5) return;
+    const npcGroup = window.WNS.Engine3D.getNpcGroup();
+    if (!npcGroup) return;
 
-    const tier = window.WNS.State.deviceTier || "MEDIUM";
-    const maxNpcs = tier === "LOW" ? 4 : 7;
-    if (customers.length >= maxNpcs) return;
+    const npcId = `npc_${idCounter++}`;
+    const preset = OUTFIT_PRESETS[Math.floor(Math.random() * OUTFIT_PRESETS.length)];
+    const charObj = window.WNS.Engine3D.createRobloxCharacter(preset);
 
-    const enableShadows = tier !== "LOW";
-    const parts = createCustomerMesh(enableShadows);
-    const fromLeft = Math.random() < 0.5;
-    const startX = fromLeft ? -13 : 13;
-    const streetZ = 4.9 + Math.random() * 0.9;
+    const spawnSide = Math.random() > 0.5 ? -10 : 10;
+    charObj.root.position.set(spawnSide, 0, 7.2);
+    npcGroup.add(charObj.root);
 
-    parts.root.position.set(startX, 0.12, streetZ);
-    scene.add(parts.root);
+    const seat = findFreeSeat(npcId);
+    const targetX = seat ? seat.x : (Math.random() - 0.5) * 3.2;
+    const targetZ = seat ? seat.z : -1.6;
 
-    const furnStats = window.WNS.Furniture ? window.WNS.Furniture.getStats() : { comfortScore: 0 };
-    const enterChance = Math.min(0.88, 0.48 + (furnStats.comfortScore || 0) * 0.005);
-    const willEnter = forceEnter || Math.random() < enterChance;
+    const bubble = createOrderBubble();
+    bubble.visible = false;
+    charObj.root.add(bubble);
 
-    customers.push({
-      id: `npc_${idCounter++}`,
-      ...parts,
-      state: willEnter ? "TO_ENTRANCE" : "PASS_BY",
-      targetX: willEnter ? 1.8 : -startX,
-      targetZ: willEnter ? 3.8 : streetZ,
-      exitX: fromLeft ? 13 : -13,
-      speed: 2.1 + Math.random() * 0.5,
-      waitTimer: 0,
-      assignedSeat: null,
-      mealValue: 0,
+    activeCustomers.push({
+      id: npcId,
+      char: charObj,
+      bubble,
+      seat,
+      state: "ENTERING", // ENTERING -> WAITING_ORDER -> EATING -> LEAVING
+      targetX,
+      targetZ,
+      timer: 0,
       walkPhase: Math.random() * 6
     });
+
+    updateQueueHud();
   }
 
-  function moveTowards(npc, tx, tz, delta) {
-    const dx = tx - npc.root.position.x;
-    const dz = tz - npc.root.position.z;
-    const dist = Math.hypot(dx, dz);
+  function getWaitingCount() {
+    return activeCustomers.filter((c) => c.state === "WAITING_ORDER").length;
+  }
 
-    if (dist < 0.14) {
-      npc.leftLeg.rotation.x = 0;
-      npc.rightLeg.rotation.x = 0;
-      return true;
+  function getStockCountSafe() {
+    if (window.WNS.PhoneShop && typeof window.WNS.PhoneShop.getTotalStockCount === "function") {
+      return window.WNS.PhoneShop.getTotalStockCount();
+    }
+    const save = window.WNS.State.saveData;
+    if (!save) return 0;
+    const inv = save.inventory || save.stock || {};
+    return Object.values(inv).reduce((a, b) => a + (Number(b) || 0), 0);
+  }
+
+  function consumeStockSafe() {
+    if (window.WNS.PhoneShop && typeof window.WNS.PhoneShop.consumeOneIngredient === "function") {
+      return window.WNS.PhoneShop.consumeOneIngredient();
+    }
+    const save = window.WNS.State.saveData;
+    if (!save) return null;
+    const inv = save.inventory || save.stock || {};
+    const keys = Object.keys(inv).filter((k) => inv[k] > 0);
+    if (keys.length === 0) return null;
+    const key = keys[0];
+    inv[key] -= 1;
+    const cfg = (window.WNS.Config.SHOP_ITEMS || []).find((i) => i.id === key);
+    return {
+      name: cfg ? cfg.name : "Menu Nusantara",
+      sellPrice: cfg ? cfg.sellPrice : 28000
+    };
+  }
+
+  function updateQueueHud() {
+    const stockEl = document.getElementById("stock-summary");
+    if (stockEl) {
+      stockEl.textContent = `Stok: ${getStockCountSafe()} | Antre: ${getWaitingCount()}`;
+    }
+  }
+
+  /* ================= SISTEM ANTI-SPAM MELAYANI PELANGGAN ================= */
+  function serveCustomerAction() {
+    // 1. Cegah spam klik saat masih proses masak
+    if (isCooking) {
+      window.WNS.showToast("Sabar! Sedang memasak pesanan pelanggan...");
+      return;
     }
 
-    const step = Math.min(dist, npc.speed * delta);
-    npc.root.position.x += (dx / dist) * step;
-    npc.root.position.z += (dz / dist) * step;
-    npc.root.rotation.y = Math.atan2(dx, dz);
+    // 2. Pastikan pemain berada di dalam/dekat warung (tidak sedang jauh di jalan raya)
+    const pPos = window.WNS.Engine3D.getPlayerPosition();
+    const distToWarung = Math.hypot(pPos.x - 0, pPos.z - (-1.5));
+    if (distToWarung > 8.5) {
+      window.WNS.showToast("Jalan masuk ke warung dulu buat masak & antar pesanan!");
+      return;
+    }
 
-    // Animasi ayunan kaki saat berjalan
-    npc.walkPhase += delta * 10;
-    const swing = Math.sin(npc.walkPhase) * 0.55;
-    npc.leftLeg.rotation.x = swing;
-    npc.rightLeg.rotation.x = -swing;
+    // 3. Pastikan ada pelanggan yang sedang menunggu pesanan
+    const waitingCustomer = activeCustomers.find((c) => c.state === "WAITING_ORDER");
+    if (!waitingCustomer) {
+      window.WNS.showToast("Belum ada pelanggan yang menunggu pesanan!");
+      return;
+    }
 
-    return false;
+    // 4. Pastikan stok bahan masih ada
+    if (getStockCountSafe() <= 0) {
+      window.WNS.showToast("Stok bahan habis! Beli bahan dulu lewat HP Order.");
+      return;
+    }
+
+    // Kunci tombol & jalankan timer masak 2.2 detik
+    isCooking = true;
+    const cookBtn = document.getElementById("btn-cook-serve");
+    const btnTitle = document.getElementById("cook-btn-title");
+    const progWrap = document.getElementById("cook-progress-wrap");
+    const progFill = document.getElementById("cook-progress-fill");
+
+    if (cookBtn) cookBtn.disabled = true;
+    if (btnTitle) btnTitle.textContent = "Memasak...";
+    if (progWrap) progWrap.classList.remove("hidden");
+    window.WNS.Engine3D.setPlayerCarrying(true);
+
+    const cookDuration = 2200;
+    const startTime = performance.now();
+
+    function stepCook(now) {
+      const elapsed = now - startTime;
+      const pct = Math.min(100, (elapsed / cookDuration) * 100);
+      if (progFill) progFill.style.width = `${pct}%`;
+
+      if (elapsed < cookDuration) {
+        requestAnimationFrame(stepCook);
+        return;
+      }
+
+      // Selesai masak -> Sajikan ke 1 pelanggan yang menunggu
+      isCooking = false;
+      window.WNS.Engine3D.setPlayerCarrying(false);
+      if (cookBtn) cookBtn.disabled = false;
+      if (btnTitle) btnTitle.textContent = "Masak & Layani";
+      if (progWrap) progWrap.classList.add("hidden");
+      if (progFill) progFill.style.width = "0%";
+
+      // Cek ulang apakah pelanggan masih menunggu & stok tersedia
+      if (waitingCustomer.state !== "WAITING_ORDER") return;
+      const dish = consumeStockSafe();
+      if (!dish) return;
+
+      // Ubah status pelanggan menjadi EATING agar tidak bisa dilayani dua kali
+      waitingCustomer.state = "EATING";
+      waitingCustomer.timer = 5.0;
+      waitingCustomer.bubble.visible = false;
+
+      // Hitung pendapatan + bonus kenyamanan warung + multiplier kota
+      const saveData = window.WNS.State.saveData;
+      const city = window.WNS.Cities ? window.WNS.Cities.getCurrentCity() : { priceMultiplier: 1 };
+      const comfort = window.WNS.Furniture ? window.WNS.Furniture.getComfortScore() : 15;
+      const bonus = Math.round(dish.sellPrice * (comfort / 250));
+      const totalEarn = Math.round((dish.sellPrice + bonus) * (city.priceMultiplier || 1));
+
+      saveData.coins = (saveData.coins || 0) + totalEarn;
+      saveData.rep = (saveData.rep || 10) + 2;
+      saveData.servedCount = (saveData.servedCount || 0) + 1;
+      if (saveData.servedCount % 5 === 0) {
+        saveData.level = (saveData.level || 1) + 1;
+      }
+
+      if (window.WNS.Main) window.WNS.Main.refreshHud();
+      updateQueueHud();
+      window.WNS.showToast(`Pesanan diantar! +Rp ${totalEarn.toLocaleString("id-ID")} (+2 Rep)`);
+    }
+
+    requestAnimationFrame(stepCook);
   }
 
   function updateCustomers(delta) {
-    const scene = window.WNS.Engine3D ? window.WNS.Engine3D.getScene() : null;
-    if (!scene) return;
+    const npcGroup = window.WNS.Engine3D.getNpcGroup();
+    if (!npcGroup) return;
 
     spawnTimer += delta;
-    if (spawnTimer >= 3.4) {
+    if (spawnTimer >= 6.5) {
       spawnTimer = 0;
-      spawnCustomer(false);
+      spawnCustomer();
     }
 
-    for (let i = customers.length - 1; i >= 0; i--) {
-      const c = customers[i];
+    for (let i = activeCustomers.length - 1; i >= 0; i--) {
+      const c = activeCustomers[i];
+      const pos = c.char.root.position;
 
-      if (c.state === "PASS_BY") {
-        const arrived = moveTowards(c, c.targetX, c.targetZ, delta);
-        if (arrived) {
-          scene.remove(c.root);
-          customers.splice(i, 1);
-        }
-      } else if (c.state === "TO_ENTRANCE") {
-        if (moveTowards(c, c.targetX, c.targetZ, delta)) {
-          c.state = "TO_COUNTER";
-          c.targetX = -1.6 + (Math.random() * 1.4 - 0.7);
-          c.targetZ = -1.8;
-          c.root.position.y = 0.24;
-        }
-      } else if (c.state === "TO_COUNTER") {
-        if (moveTowards(c, c.targetX, c.targetZ, delta)) {
-          c.state = "ORDERING";
-          c.waitTimer = 1.4;
-        }
-      } else if (c.state === "ORDERING") {
-        c.waitTimer -= delta;
-        if (c.waitTimer <= 0) {
-          const dish = pickAvailableIngredient();
-          if (!dish) {
-            window.WNS.showToast("Stok bahan habis! Beli lewat HP Order.");
-            c.state = "LEAVING_DOOR";
-            c.targetX = 1.8;
-            c.targetZ = 3.8;
-            continue;
-          }
+      if (c.state === "ENTERING") {
+        const dx = c.targetX - pos.x;
+        const dz = c.targetZ - pos.z;
+        const dist = Math.hypot(dx, dz);
 
-          window.WNS.State.saveData.stock[dish.id] -= 1;
-          c.mealValue = dish.sellValue;
-          if (window.WNS.Main && typeof window.WNS.Main.refreshHud === "function") {
-            window.WNS.Main.refreshHud();
-          }
-
-          // 80% pembeli ingin duduk kalau ada bangku/sofa kosong
-          const wantsToSit = Math.random() < 0.8;
-          const seat = wantsToSit && window.WNS.Furniture ? window.WNS.Furniture.getAvailableSeat(c.id) : null;
-
-          if (seat) {
-            c.assignedSeat = seat;
-            c.state = "TO_SEAT";
-            c.targetX = seat.x;
-            c.targetZ = seat.z;
+        if (dist > 0.25) {
+          pos.x += (dx / dist) * 2.5 * delta;
+          pos.z += (dz / dist) * 2.5 * delta;
+          c.char.root.rotation.y = Math.atan2(dx, dz);
+          c.walkPhase += delta * 9;
+          c.char.setPose("walk", c.walkPhase);
+        } else {
+          c.state = "WAITING_ORDER";
+          c.bubble.visible = true;
+          if (c.seat) {
+            c.char.root.rotation.y = c.seat.rotY;
+            c.char.setPose("sit", 0);
           } else {
-            // Bungkus bawa pulang
-            completeCustomerPayment(c);
-            c.state = "LEAVING_DOOR";
-            c.targetX = 1.8;
-            c.targetZ = 3.8;
+            c.char.root.rotation.y = Math.PI;
+            c.char.setPose("idle", 0);
           }
+          updateQueueHud();
         }
-      } else if (c.state === "TO_SEAT") {
-        if (moveTowards(c, c.targetX, c.targetZ, delta)) {
-          c.state = "SITTING_EAT";
-          c.waitTimer = 5.5;
-          c.root.rotation.y = c.assignedSeat ? c.assignedSeat.rotY : 0;
-          applySittingPose(c, true);
+      } else if (c.state === "WAITING_ORDER") {
+        c.walkPhase += delta * 3;
+        c.bubble.position.y = 3.1 + Math.sin(c.walkPhase) * 0.08;
+        c.char.setPose(c.seat ? "sit" : "idle", c.walkPhase);
+      } else if (c.state === "EATING") {
+        c.timer -= delta;
+        c.walkPhase += delta * 5;
+        c.char.setPose(c.seat ? "sit" : "idle", c.walkPhase);
+
+        if (c.timer <= 0) {
+          releaseSeat(c.id);
+          c.state = "LEAVING";
+          c.targetX = Math.random() > 0.5 ? -13 : 13;
+          c.targetZ = 7.4;
+          updateQueueHud();
         }
-      } else if (c.state === "SITTING_EAT") {
-        c.waitTimer -= delta;
-        // Animasi kecil kepala angguk saat makan
-        c.bodyPivot.rotation.x = Math.sin(c.waitTimer * 6) * 0.06;
-        if (c.waitTimer <= 0) {
-          c.bodyPivot.rotation.x = 0;
-          applySittingPose(c, false);
-          completeCustomerPayment(c);
-          if (c.assignedSeat && window.WNS.Furniture) {
-            window.WNS.Furniture.releaseSeat(c.assignedSeat.id);
-            c.assignedSeat = null;
-          }
-          c.state = "LEAVING_DOOR";
-          c.targetX = 1.8;
-          c.targetZ = 3.8;
-        }
-      } else if (c.state === "LEAVING_DOOR") {
-        if (moveTowards(c, c.targetX, c.targetZ, delta)) {
-          c.root.position.y = 0.12;
-          c.state = "PASS_BY";
-          c.targetX = c.exitX;
-          c.targetZ = 5.2;
+      } else if (c.state === "LEAVING") {
+        const dx = c.targetX - pos.x;
+        const dz = c.targetZ - pos.z;
+        const dist = Math.hypot(dx, dz);
+
+        if (dist > 0.35) {
+          pos.x += (dx / dist) * 2.7 * delta;
+          pos.z += (dz / dist) * 2.7 * delta;
+          c.char.root.rotation.y = Math.atan2(dx, dz);
+          c.walkPhase += delta * 9;
+          c.char.setPose("walk", c.walkPhase);
+        } else {
+          npcGroup.remove(c.char.root);
+          activeCustomers.splice(i, 1);
         }
       }
     }
   }
 
-  // Dipanggil saat tombol "Masak & Layani" ditekan manual oleh pemain
-  function serveCustomerAction() {
-    const dish = pickAvailableIngredient();
-    if (!dish) {
-      window.WNS.showToast("Stok habis! Buka HP Order buat beli bahan dulu.");
-      return;
-    }
-
-    // Jika ada pembeli yang sedang antre di kasir, langsung layani sekarang
-    const waitingNpc = customers.find((c) => c.state === "ORDERING" || c.state === "TO_COUNTER");
-    if (waitingNpc) {
-      waitingNpc.waitTimer = 0;
-      window.WNS.showToast(`Pesanan ${dish.name} langsung disajikan!`);
-      return;
-    }
-
-    // Jika antrean kosong, masak cepat & panggil pelanggan baru
-    window.WNS.State.saveData.stock[dish.id] -= 1;
-    completeCustomerPayment({ mealValue: dish.sellValue, assignedSeat: null });
-    spawnCustomer(true);
-  }
-
   function init() {
-    if (window.WNS.Engine3D) {
-      window.WNS.Engine3D.registerTick((delta) => {
-        updateCustomers(delta);
-      });
-    }
+    window.WNS.Engine3D.registerTick(updateCustomers);
   }
 
   return {
     init,
     spawnCustomer,
-    serveCustomerAction
+    serveCustomerAction,
+    getWaitingCount
   };
 })();

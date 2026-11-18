@@ -1,384 +1,302 @@
 window.WNS = window.WNS || {};
 
-window.WNS.showToast = window.WNS.showToast || function (msg) {
-  const el = document.getElementById("game-toast");
-  if (!el) return;
-  el.textContent = msg;
-  el.style.opacity = "1";
-  clearTimeout(window.WNS._toastTimer);
-  window.WNS._toastTimer = setTimeout(() => {
-    el.style.opacity = "0.85";
-  }, 3200);
-};
-
 window.WNS.Furniture = (function () {
-  let furnitureGroup = null;
-  let spinningBlades = [];
-  let seatSpots = [];
-  let stats = {
-    seatCount: 0,
-    coolingPower: 0,
-    comfortScore: 0,
-    currentTemp: 32
-  };
+  const spinningBlades = [];
+  let seatSlots = [];
 
-  // 12 titik penempatan furnitur di dalam area lantai warung agar rapi & tidak bertumpukan
-  const FLOOR_SLOTS = [
-    { x: -2.8, z: -0.6, rotY: 0 },
-    { x: 0.2,  z: -0.6, rotY: 0 },
-    { x: 3.1,  z: -0.6, rotY: 0 },
-    { x: -2.8, z: 1.4,  rotY: 0 },
-    { x: 0.2,  z: 1.4,  rotY: 0 },
-    { x: 3.1,  z: 1.4,  rotY: 0 },
-    { x: 3.4,  z: -2.9, rotY: -0.4 },
-    { x: -4.2, z: -1.8, rotY: Math.PI / 2 },
-    { x: -4.2, z: 0.4,  rotY: Math.PI / 2 },
-    { x: -4.2, z: 2.3,  rotY: Math.PI / 2 },
-    { x: 3.8,  z: 2.6,  rotY: -0.5 },
-    { x: 1.7,  z: -3.1, rotY: 0 }
-  ];
+  // Model Kipas Angin 3D Detail dengan 4 Baling-Baling Miring & Sangkar
+  function buildRealisticFan(x, y, z) {
+    const fanGroup = new THREE.Group();
+    fanGroup.position.set(x, y, z);
 
-  function createBenchMesh(colorHex, enableShadows) {
-    const group = new THREE.Group();
-    const mat = new THREE.MeshStandardMaterial({ color: colorHex, roughness: 0.6 });
+    const darkMetal = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.6, roughness: 0.35 });
+    const chromeMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.85, roughness: 0.2 });
+    const bladeMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.3 });
 
-    // Dudukan papan kayu
-    const seat = new THREE.Mesh(new THREE.BoxGeometry(1.45, 0.12, 0.55), mat);
-    seat.position.y = 0.48;
-    seat.castShadow = enableShadows;
-    seat.receiveShadow = enableShadows;
-    group.add(seat);
+    // Dudukan pemberat bundar
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.42, 0.1, 20), darkMetal);
+    base.position.y = 0.05;
 
-    // 4 kaki bangku
-    const legGeo = new THREE.BoxGeometry(0.1, 0.48, 0.1);
-    const offsets = [
-      [-0.62, 0.24, -0.2],
-      [0.62, 0.24, -0.2],
-      [-0.62, 0.24, 0.2],
-      [0.62, 0.24, 0.2]
-    ];
-    offsets.forEach(([lx, ly, lz]) => {
-      const leg = new THREE.Mesh(legGeo, mat);
-      leg.position.set(lx, ly, lz);
-      leg.castShadow = enableShadows;
-      group.add(leg);
-    });
+    // Tiang berdiri
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.055, 1.55, 12), chromeMat);
+    pole.position.y = 0.82;
 
-    return group;
-  }
+    // Kepala motor kipas
+    const head = new THREE.Group();
+    head.position.set(0, 1.62, 0);
 
-  function createVipSofaMesh(colorHex, enableShadows) {
-    const group = new THREE.Group();
-    const cushionMat = new THREE.MeshStandardMaterial({ color: colorHex, roughness: 0.5 });
-    const frameMat = new THREE.MeshStandardMaterial({ color: 0x3f2314, roughness: 0.7 });
+    const motor = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.16, 0.26, 14), darkMetal);
+    motor.rotation.x = Math.PI / 2;
+    motor.position.z = -0.1;
 
-    const base = new THREE.Mesh(new THREE.BoxGeometry(1.95, 0.44, 0.72), cushionMat);
-    base.position.y = 0.22;
-    base.castShadow = enableShadows;
-    base.receiveShadow = enableShadows;
-    group.add(base);
+    // Sangkar kawat melingkar
+    const ringOuter = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.018, 8, 28), chromeMat);
+    const ringInner = new THREE.Mesh(new THREE.TorusGeometry(0.24, 0.012, 8, 20), chromeMat);
+    ringInner.position.z = 0.06;
 
-    const backRest = new THREE.Mesh(new THREE.BoxGeometry(1.95, 0.55, 0.16), cushionMat);
-    backRest.position.set(0, 0.62, -0.28);
-    backRest.castShadow = enableShadows;
-    group.add(backRest);
-
-    const armL = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.52, 0.72), frameMat);
-    armL.position.set(-0.92, 0.36, 0);
-    group.add(armL);
-
-    const armR = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.52, 0.72), frameMat);
-    armR.position.set(0.92, 0.36, 0);
-    group.add(armR);
-
-    return group;
-  }
-
-  function createTableMesh(colorHex, enableShadows) {
-    const group = new THREE.Group();
-    const topMat = new THREE.MeshStandardMaterial({ color: colorHex, roughness: 0.45 });
-    const legMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.5, roughness: 0.4 });
-
-    const top = new THREE.Mesh(new THREE.BoxGeometry(1.25, 0.1, 0.85), topMat);
-    top.position.y = 0.76;
-    top.castShadow = enableShadows;
-    top.receiveShadow = enableShadows;
-    group.add(top);
-
-    const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.76, 10), legMat);
-    pillar.position.y = 0.38;
-    group.add(pillar);
-
-    const foot = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.35, 0.06, 12), legMat);
-    foot.position.y = 0.03;
-    group.add(foot);
-
-    return group;
-  }
-
-  function createFanMesh(colorHex, enableShadows) {
-    const group = new THREE.Group();
-    const bodyMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.3, roughness: 0.4 });
-    const bladeMat = new THREE.MeshStandardMaterial({ color: colorHex, roughness: 0.3 });
-
-    const base = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.32, 0.08, 14), bodyMat);
-    base.position.y = 0.04;
-    group.add(base);
-
-    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.055, 1.45, 10), bodyMat);
-    pole.position.y = 0.76;
-    pole.castShadow = enableShadows;
-    group.add(pole);
-
-    const motor = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.22, 0.28), bodyMat);
-    motor.position.set(0, 1.5, 0);
-    group.add(motor);
-
-    // Rotor baling-baling berputar
+    // 4 Baling-baling berputar
     const rotor = new THREE.Group();
-    rotor.position.set(0, 1.5, 0.17);
+    rotor.position.z = 0.03;
 
-    for (let i = 0; i < 3; i++) {
-      const blade = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.36, 0.02), bladeMat);
-      const angle = (i * Math.PI * 2) / 3;
-      blade.position.set(Math.sin(angle) * 0.18, Math.cos(angle) * 0.18, 0);
-      blade.rotation.z = -angle;
-      rotor.add(blade);
+    const hub = new THREE.Mesh(new THREE.SphereGeometry(0.08, 12, 12), darkMetal);
+    rotor.add(hub);
+
+    for (let i = 0; i < 4; i++) {
+      const bladeWrap = new THREE.Group();
+      bladeWrap.rotation.z = (i * Math.PI) / 2;
+
+      const blade = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.34, 0.015), bladeMat);
+      blade.position.y = 0.2;
+      blade.rotation.y = 0.38; // Sudut kemiringan bilah angin
+      bladeWrap.add(blade);
+      rotor.add(bladeWrap);
     }
 
-    group.add(rotor);
+    head.add(motor, ringOuter, ringInner, rotor);
+    fanGroup.add(base, pole, head);
+
     spinningBlades.push(rotor);
-    return group;
+    return fanGroup;
   }
 
-  function createLampMesh(colorHex) {
-    const group = new THREE.Group();
-    const cordMat = new THREE.MeshBasicMaterial({ color: 0x1e293b });
-    const shadeMat = new THREE.MeshStandardMaterial({
-      color: colorHex,
-      emissive: colorHex,
-      emissiveIntensity: 0.55
+  // Model Set Meja Taplak Batik & 2 Kursi Kayu/Sofa
+  function buildTableSet(x, z, isSofa, slotIndex) {
+    const setGroup = new THREE.Group();
+    setGroup.position.set(x, 0.24, z);
+
+    const woodMat = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.65 });
+    const tableTop = new THREE.Mesh(new THREE.BoxGeometry(1.35, 0.1, 1.05), woodMat);
+    tableTop.position.y = 0.78;
+
+    const cloth = new THREE.Mesh(
+      new THREE.BoxGeometry(1.15, 0.11, 0.85),
+      new THREE.MeshStandardMaterial({ color: isSofa ? 0xd97706 : 0xb91c1c, roughness: 0.7 })
+    );
+    cloth.position.y = 0.785;
+
+    const tableLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.14, 0.76, 10), woodMat);
+    tableLeg.position.y = 0.38;
+
+    // Botol sambal & tempat tisu di meja
+    const bottle = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.05, 0.05, 0.2, 8),
+      new THREE.MeshStandardMaterial({ color: 0xef4444 })
+    );
+    bottle.position.set(0.25, 0.92, 0.1);
+
+    setGroup.add(tableTop, cloth, tableLeg, bottle);
+
+    const seatMat = new THREE.MeshStandardMaterial({
+      color: isSofa ? 0x1e40af : 0x92400e,
+      roughness: 0.5
     });
 
-    const cord = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 1.1, 6), cordMat);
-    cord.position.y = 2.95;
-    group.add(cord);
+    // 2 Kursi (Kiri & Kanan Meja)
+    [-0.95, 0.95].forEach((offsetX, idx) => {
+      const chair = new THREE.Group();
+      chair.position.set(offsetX, 0, 0);
 
-    const shade = new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.25, 14), shadeMat);
-    shade.position.y = 2.35;
-    group.add(shade);
+      const seat = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.1, 0.55), seatMat);
+      seat.position.y = 0.46;
 
-    return group;
+      const back = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.55, 0.55), seatMat);
+      back.position.set(offsetX < 0 ? -0.22 : 0.22, 0.74, 0);
+
+      const cLeg = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.44, 0.45), woodMat);
+      cLeg.position.y = 0.22;
+
+      chair.add(seat, back, cLeg);
+      setGroup.add(chair);
+
+      seatSlots.push({
+        id: `seat_${slotIndex}_${idx}`,
+        x: x + offsetX,
+        y: 0.24,
+        z: z,
+        rotY: offsetX < 0 ? Math.PI / 2 : -Math.PI / 2,
+        occupiedBy: null
+      });
+    });
+
+    return setGroup;
   }
 
-  function createAcMesh(colorHex) {
-    const group = new THREE.Group();
-    const acMat = new THREE.MeshStandardMaterial({ color: colorHex, roughness: 0.3 });
-    const ventMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
+  function buildWallAC(x, y, z, rotY) {
+    const ac = new THREE.Mesh(
+      new THREE.BoxGeometry(1.5, 0.42, 0.35),
+      new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.25 })
+    );
+    ac.position.set(x, y, z);
+    ac.rotation.y = rotY || 0;
+    return ac;
+  }
 
-    const stand = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.34, 0.32), acMat);
-    stand.position.set(0, 2.55, 0);
-    group.add(stand);
-
-    const ledStrip = new THREE.Mesh(new THREE.BoxGeometry(0.75, 0.04, 0.04), ventMat);
-    ledStrip.position.set(0, 2.42, 0.16);
-    group.add(ledStrip);
-
-    return group;
+  function buildPottedPlant(x, z) {
+    const g = new THREE.Group();
+    g.position.set(x, 0.24, z);
+    const pot = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.26, 0.18, 0.38, 12),
+      new THREE.MeshStandardMaterial({ color: 0x9a3412 })
+    );
+    pot.position.y = 0.19;
+    const leaf = new THREE.Mesh(
+      new THREE.DodecahedronGeometry(0.36, 1),
+      new THREE.MeshStandardMaterial({ color: 0x16a34a })
+    );
+    leaf.position.y = 0.56;
+    g.add(pot, leaf);
+    return g;
   }
 
   function rebuildAll() {
-    const scene = window.WNS.Engine3D ? window.WNS.Engine3D.getScene() : null;
-    const saveData = window.WNS.State.saveData;
-    if (!scene || !saveData) return;
+    const decorGroup = window.WNS.Engine3D.getDecorGroup();
+    if (!decorGroup) return;
 
-    if (furnitureGroup) {
-      scene.remove(furnitureGroup);
+    while (decorGroup.children.length > 0) {
+      decorGroup.remove(decorGroup.children[0]);
+    }
+    spinningBlades.length = 0;
+    seatSlots = [];
+
+    const saveData = window.WNS.State.saveData || {};
+    const owned = saveData.decor || { chair_wood: 2, fan_stand: 1, plant_pot: 1 };
+
+    // Posisi meja & kursi rapi di dalam warung
+    const tableSpots = [
+      [-2.7, -0.8],
+      [2.7, -0.8],
+      [-2.7, 1.8],
+      [2.7, 1.8]
+    ];
+
+    let spotIdx = 0;
+    const woodCount = Math.max(1, owned.chair_wood || 1);
+    for (let i = 0; i < woodCount && spotIdx < tableSpots.length; i++, spotIdx++) {
+      decorGroup.add(buildTableSet(tableSpots[spotIdx][0], tableSpots[spotIdx][1], false, spotIdx));
     }
 
-    furnitureGroup = new THREE.Group();
-    spinningBlades = [];
-    seatSpots = [];
+    const sofaCount = owned.chair_sofa || 0;
+    for (let i = 0; i < sofaCount && spotIdx < tableSpots.length; i++, spotIdx++) {
+      decorGroup.add(buildTableSet(tableSpots[spotIdx][0], tableSpots[spotIdx][1], true, spotIdx));
+    }
 
-    let totalSeats = 0;
-    let totalCooling = 0;
-    let totalComfort = 0;
+    // Kipas Angin 3D Realistis
+    const fanSpots = [
+      [-4.4, 0.24, -2.5, 0.5],
+      [4.4, 0.24, -2.5, -0.5],
+      [-4.4, 0.24, 2.8, 2.4]
+    ];
+    const fanCount = Math.max(1, owned.fan_stand || 1);
+    for (let i = 0; i < fanCount && i < fanSpots.length; i++) {
+      const f = buildRealisticFan(fanSpots[i][0], fanSpots[i][1], fanSpots[i][2]);
+      f.rotation.y = fanSpots[i][3];
+      decorGroup.add(f);
+    }
 
-    const tier = window.WNS.State.deviceTier || "MEDIUM";
-    const enableShadows = tier !== "LOW";
-    const catalog = window.WNS.Config.FURNITURE;
-    const ownedList = saveData.furniture || [];
-
-    ownedList.forEach((itemId, idx) => {
-      if (idx >= FLOOR_SLOTS.length) return;
-      const itemDef = catalog.find((f) => f.id === itemId);
-      if (!itemDef) return;
-
-      const slot = FLOOR_SLOTS[idx];
-      let mesh = null;
-
-      if (itemDef.id === "bangku_kayu") {
-        mesh = createBenchMesh(itemDef.color, enableShadows);
-        seatSpots.push(
-          { id: `seat_${idx}_a`, x: slot.x - 0.35, y: 0.24, z: slot.z, rotY: slot.rotY, occupiedBy: null, isVip: false },
-          { id: `seat_${idx}_b`, x: slot.x + 0.35, y: 0.24, z: slot.z, rotY: slot.rotY, occupiedBy: null, isVip: false }
-        );
-      } else if (itemDef.id === "sofa_vip") {
-        mesh = createVipSofaMesh(itemDef.color, enableShadows);
-        seatSpots.push(
-          { id: `seat_${idx}_a`, x: slot.x - 0.55, y: 0.24, z: slot.z, rotY: slot.rotY, occupiedBy: null, isVip: true },
-          { id: `seat_${idx}_b`, x: slot.x,        y: 0.24, z: slot.z, rotY: slot.rotY, occupiedBy: null, isVip: true },
-          { id: `seat_${idx}_c`, x: slot.x + 0.55, y: 0.24, z: slot.z, rotY: slot.rotY, occupiedBy: null, isVip: true }
-        );
-      } else if (itemDef.id === "meja_makan") {
-        mesh = createTableMesh(itemDef.color, enableShadows);
-      } else if (itemDef.id === "kipas_angin") {
-        mesh = createFanMesh(itemDef.color, enableShadows);
-      } else if (itemDef.id === "lampu_hias") {
-        mesh = createLampMesh(itemDef.color);
-      } else if (itemDef.id === "ac_dinding") {
-        mesh = createAcMesh(itemDef.color);
+    // AC Dinding
+    if ((owned.ac_wall || 0) > 0) {
+      decorGroup.add(buildWallAC(-4.95, 3.0, 0.4, Math.PI / 2));
+      if (owned.ac_wall > 1) {
+        decorGroup.add(buildWallAC(4.95, 3.0, 0.4, -Math.PI / 2));
       }
+    }
 
-      if (mesh) {
-        mesh.position.set(slot.x, 0.24, slot.z);
-        mesh.rotation.y = slot.rotY;
-        furnitureGroup.add(mesh);
-      }
+    // Tanaman Hias
+    if ((owned.plant_pot || 0) > 0) {
+      decorGroup.add(buildPottedPlant(-4.4, 3.7));
+      decorGroup.add(buildPottedPlant(4.4, 3.7));
+    }
 
-      totalSeats += itemDef.seatCapacity || 0;
-      totalCooling += itemDef.cooling || 0;
-      totalComfort += itemDef.comfort || 0;
+    updateStatsSummary();
+  }
+
+  function getComfortScore() {
+    const owned = (window.WNS.State.saveData && window.WNS.State.saveData.decor) || {};
+    let score = 15;
+    (window.WNS.Config.DECOR_ITEMS || []).forEach((item) => {
+      score += (owned[item.id] || 0) * item.comfort;
     });
+    return Math.min(100, score);
+  }
 
-    scene.add(furnitureGroup);
+  function getCoolingBonus() {
+    const owned = (window.WNS.State.saveData && window.WNS.State.saveData.decor) || {};
+    let cool = 0;
+    (window.WNS.Config.DECOR_ITEMS || []).forEach((item) => {
+      cool += (owned[item.id] || 0) * item.cooling;
+    });
+    return cool;
+  }
 
-    // Hitung suhu ruangan berdasarkan kota aktif dikurangi efek kipas / AC
-    const cityObj = window.WNS.Config.CITIES.find((c) => c.id === saveData.currentCity) || window.WNS.Config.CITIES[0];
-    const finalTemp = Math.max(18, cityObj.baseTemp - totalCooling);
-
-    stats = {
-      seatCount: totalSeats,
-      coolingPower: totalCooling,
-      comfortScore: Math.min(100, totalComfort),
-      currentTemp: finalTemp
-    };
-
-    const hudTemp = document.getElementById("hud-temp");
-    if (hudTemp) hudTemp.textContent = `${finalTemp}°C`;
-
+  function updateStatsSummary() {
     const summaryEl = document.getElementById("decor-stats-summary");
+    const tempEl = document.getElementById("hud-temp");
+    const city = window.WNS.Cities ? window.WNS.Cities.getCurrentCity() : { baseTemp: 32 };
+    const currentTemp = Math.max(18, (city.baseTemp || 32) - getCoolingBonus());
+
+    if (tempEl) tempEl.textContent = `${currentTemp}°C`;
     if (summaryEl) {
-      summaryEl.textContent = `Kursi: ${totalSeats} | Pendingin: -${totalCooling}°C | Nyaman: ${stats.comfortScore}%`;
+      summaryEl.textContent = `Kursi: ${seatSlots.length} | Kipas/AC: ${getCoolingBonus()} | Kenyamanan: ${getComfortScore()}%`;
     }
-
-    renderCatalogUI();
   }
 
-  function buyFurniture(itemId) {
-    const saveData = window.WNS.State.saveData;
-    const itemDef = window.WNS.Config.FURNITURE.find((f) => f.id === itemId);
-    if (!saveData || !itemDef) return;
-
-    if ((saveData.furniture || []).length >= FLOOR_SLOTS.length) {
-      window.WNS.showToast("Slot lantai warung sudah penuh (maksimal 12 dekorasi)!");
-      return;
-    }
-
-    if (saveData.coins < itemDef.price) {
-      window.WNS.showToast(`Saldo kurang! Butuh Rp ${itemDef.price.toLocaleString("id-ID")}.`);
-      return;
-    }
-
-    saveData.coins -= itemDef.price;
-    saveData.rep = (saveData.rep || 0) + 3;
-    saveData.furniture.push(itemDef.id);
-
-    rebuildAll();
-    updateTopHudCoins();
-    window.WNS.showToast(`${itemDef.name} terpasang di warung!`);
-  }
-
-  function updateTopHudCoins() {
-    const saveData = window.WNS.State.saveData;
-    if (!saveData) return;
-    const coinsEl = document.getElementById("hud-coins");
-    const repEl = document.getElementById("hud-rep");
-    if (coinsEl) coinsEl.textContent = `Rp ${saveData.coins.toLocaleString("id-ID")}`;
-    if (repEl) repEl.textContent = saveData.rep;
-  }
-
-  function renderCatalogUI() {
+  function renderCatalog() {
     const listEl = document.getElementById("decor-catalog-list");
-    const saveData = window.WNS.State.saveData;
-    if (!listEl || !saveData) return;
-
-    const owned = saveData.furniture || [];
-    const isFull = owned.length >= FLOOR_SLOTS.length;
-
+    if (!listEl) return;
     listEl.innerHTML = "";
-    window.WNS.Config.FURNITURE.forEach((item) => {
-      const countOwned = owned.filter((id) => id === item.id).length;
-      const canAfford = saveData.coins >= item.price && !isFull;
 
+    const saveData = window.WNS.State.saveData || { coins: 0, decor: {} };
+    saveData.decor = saveData.decor || {};
+
+    (window.WNS.Config.DECOR_ITEMS || []).forEach((item) => {
+      const count = saveData.decor[item.id] || 0;
       const card = document.createElement("div");
       card.className = "item-card";
       card.innerHTML = `
         <div>
-          <h4>${item.name} (${countOwned}x)</h4>
+          <h4>${item.name} (${count})</h4>
           <p>${item.desc}</p>
         </div>
-        <button class="buy-btn" ${canAfford ? "" : "disabled"}>
-          ${isFull ? "Slot Penuh" : `Pasang • Rp ${item.price.toLocaleString("id-ID")}`}
+        <button class="buy-btn" ${saveData.coins < item.cost ? "disabled" : ""}>
+          Beli Rp ${item.cost.toLocaleString("id-ID")}
         </button>
       `;
-
-      const btn = card.querySelector("button");
-      if (btn) {
-        btn.addEventListener("click", () => buyFurniture(item.id));
-      }
+      card.querySelector("button").addEventListener("click", () => {
+        if (saveData.coins < item.cost) return;
+        saveData.coins -= item.cost;
+        saveData.decor[item.id] = (saveData.decor[item.id] || 0) + 1;
+        rebuildAll();
+        renderCatalog();
+        if (window.WNS.Main) window.WNS.Main.refreshHud();
+        window.WNS.showToast(`${item.name} terpasang di warung!`);
+      });
       listEl.appendChild(card);
     });
   }
 
-  function getAvailableSeat(npcId) {
-    const free = seatSpots.find((s) => s.occupiedBy === null);
-    if (!free) return null;
-    free.occupiedBy = npcId;
-    return free;
-  }
-
-  function releaseSeat(seatId) {
-    const spot = seatSpots.find((s) => s.id === seatId);
-    if (spot) spot.occupiedBy = null;
-  }
-
   function init() {
     const openBtn = document.getElementById("btn-open-decor");
-    const modal = document.getElementById("decor-modal");
-    if (openBtn && modal) {
+    if (openBtn) {
       openBtn.addEventListener("click", () => {
-        renderCatalogUI();
-        modal.classList.remove("hidden");
+        renderCatalog();
+        const modal = document.getElementById("decor-modal");
+        if (modal) modal.classList.remove("hidden");
       });
     }
 
-    // Daftarkan animasi baling-baling kipas angin muter setiap frame
-    if (window.WNS.Engine3D) {
-      window.WNS.Engine3D.registerTick((delta) => {
-        for (let i = 0; i < spinningBlades.length; i++) {
-          spinningBlades[i].rotation.z += delta * 14;
-        }
-      });
-    }
+    // Putar bilah kipas angin 3D setiap frame
+    window.WNS.Engine3D.registerTick((delta) => {
+      for (let i = 0; i < spinningBlades.length; i++) {
+        spinningBlades[i].rotation.z += delta * 18;
+      }
+    });
   }
 
   return {
     init,
     rebuildAll,
-    renderCatalogUI,
-    getAvailableSeat,
-    releaseSeat,
-    getStats: () => stats
+    getSeatPositions: () => seatSlots,
+    getComfortScore,
+    getCoolingBonus
   };
 })();

@@ -30,13 +30,67 @@ window.WNS.Main = (function () {
     if (repEl) repEl.textContent = saveData.rep || 10;
 
     if (stockEl && window.WNS.PhoneShop) {
-      stockEl.textContent = `Stok: ${window.WNS.PhoneShop.getTotalStockCount()}`;
+      const antre = window.WNS.NPC ? window.WNS.NPC.getWaitingCount() : 0;
+      stockEl.textContent = `Stok: ${window.WNS.PhoneShop.getTotalStockCount()} | Antre: ${antre}`;
     }
   }
 
+  function setupVirtualJoystick() {
+    const zone = document.getElementById("joystick-zone");
+    const stick = document.getElementById("joystick-stick");
+    if (!zone || !stick) return;
+
+    let activeTouchId = null;
+    const maxRadius = 32;
+
+    function updateStick(clientX, clientY) {
+      const rect = zone.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+
+      let dx = clientX - centerX;
+      let dy = clientY - centerY;
+      const dist = Math.hypot(dx, dy);
+
+      if (dist > maxRadius) {
+        dx = (dx / dist) * maxRadius;
+        dy = (dy / dist) * maxRadius;
+      }
+
+      stick.style.transform = `translate(${dx}px, ${dy}px)`;
+      window.WNS.Engine3D.setJoystickInput(dx / maxRadius, dy / maxRadius);
+    }
+
+    function resetStick() {
+      activeTouchId = null;
+      stick.style.transform = "translate(0px, 0px)";
+      window.WNS.Engine3D.setJoystickInput(0, 0);
+    }
+
+    zone.addEventListener("pointerdown", (e) => {
+      e.stopPropagation();
+      activeTouchId = e.pointerId;
+      zone.setPointerCapture(e.pointerId);
+      updateStick(e.clientX, e.clientY);
+    });
+
+    zone.addEventListener("pointermove", (e) => {
+      if (e.pointerId !== activeTouchId) return;
+      e.stopPropagation();
+      updateStick(e.clientX, e.clientY);
+    });
+
+    zone.addEventListener("pointerup", (e) => {
+      if (e.pointerId === activeTouchId) resetStick();
+    });
+
+    zone.addEventListener("pointercancel", (e) => {
+      if (e.pointerId === activeTouchId) resetStick();
+    });
+  }
+
   function setupModalClosers() {
-    const closeButtons = document.querySelectorAll("[data-close]");
-    closeButtons.forEach((btn) => {
+    document.querySelectorAll("[data-close]").forEach((btn) => {
       btn.addEventListener("click", () => {
         const targetId = btn.getAttribute("data-close");
         const modal = document.getElementById(targetId);
@@ -44,12 +98,9 @@ window.WNS.Main = (function () {
       });
     });
 
-    const overlays = document.querySelectorAll(".modal-overlay");
-    overlays.forEach((overlay) => {
+    document.querySelectorAll(".modal-overlay").forEach((overlay) => {
       overlay.addEventListener("click", (e) => {
-        if (e.target === overlay) {
-          overlay.classList.add("hidden");
-        }
+        if (e.target === overlay) overlay.classList.add("hidden");
       });
     });
   }
@@ -58,9 +109,7 @@ window.WNS.Main = (function () {
     const cookBtn = document.getElementById("btn-cook-serve");
     if (cookBtn) {
       cookBtn.addEventListener("click", () => {
-        if (window.WNS.NPC) {
-          window.WNS.NPC.serveCustomerAction();
-        }
+        if (window.WNS.NPC) window.WNS.NPC.serveCustomerAction();
       });
     }
 
@@ -77,9 +126,7 @@ window.WNS.Main = (function () {
         saveBtn.textContent = "Selesai & Simpan";
 
         if (ok) {
-          window.WNS.showToast(
-            `Sesi #${totalMatches} selesai! Progres multiplayer berhasil disimpan ke akun.`
-          );
+          window.WNS.showToast(`Sesi #${totalMatches} selesai! Progres tersimpan ke akun.`);
         } else {
           window.WNS.showToast("Gagal menyimpan progres, coba lagi.");
         }
@@ -87,7 +134,6 @@ window.WNS.Main = (function () {
     }
   }
 
-  // Penjaga performa otomatis: turunkan beban efek jika HP mengalami drop FPS
   function attachPerformanceGuard() {
     if (!window.WNS.Engine3D) return;
     window.WNS.Engine3D.registerTick((delta) => {
@@ -97,7 +143,7 @@ window.WNS.Main = (function () {
         if (lowFpsCounter > 90) {
           window.WNS.State.deviceTier = "LOW";
           document.body.classList.add("low-spec");
-          window.WNS.showToast("Mode Hemat HP Kentang diaktifkan otomatis agar FPS lancar.");
+          window.WNS.showToast("Mode Hemat HP Kentang diaktifkan otomatis.");
         }
       } else {
         lowFpsCounter = Math.max(0, lowFpsCounter - 1);
@@ -116,6 +162,7 @@ window.WNS.Main = (function () {
       window.WNS.Cities.init();
       window.WNS.MultiplayerMic.init();
 
+      setupVirtualJoystick();
       setupModalClosers();
       setupGameplayButtons();
       attachPerformanceGuard();
@@ -126,19 +173,14 @@ window.WNS.Main = (function () {
     window.WNS.Furniture.rebuildAll();
     refreshHud();
 
-    // Munculkan 2 pelanggan pertama saat warung baru dibuka
-    window.WNS.NPC.spawnCustomer(true);
-    setTimeout(() => window.WNS.NPC.spawnCustomer(true), 1600);
+    window.WNS.NPC.spawnCustomer();
+    setTimeout(() => window.WNS.NPC.spawnCustomer(), 1800);
 
-    window.WNS.showToast(
-      `Warung di ${activeCity.name} buka! Putar kamera 3D dengan geser layar.`
-    );
+    window.WNS.showToast(`Selamat datang di ${activeCity.name}! Pakai joystick kiri buat jalan.`);
   }
 
   document.addEventListener("DOMContentLoaded", () => {
-    if (window.WNS.Auth) {
-      window.WNS.Auth.init();
-    }
+    if (window.WNS.Auth) window.WNS.Auth.init();
   });
 
   return {
@@ -157,19 +199,13 @@ window.WNS.Main = (function () {
     if (screen.orientation && screen.orientation.lock) {
       screen.orientation.lock("landscape").catch(() => {});
     }
-    setTimeout(() => {
-      window.dispatchEvent(new Event("resize"));
-    }, 250);
+    setTimeout(() => window.dispatchEvent(new Event("resize")), 250);
   }
 
   window.addEventListener("orientationchange", () => {
-    setTimeout(() => {
-      window.dispatchEvent(new Event("resize"));
-    }, 250);
+    setTimeout(() => window.dispatchEvent(new Event("resize")), 250);
   });
 
   const submitBtn = document.getElementById("btn-auth-submit");
-  if (submitBtn) {
-    submitBtn.addEventListener("click", lockToLandscape);
-  }
+  if (submitBtn) submitBtn.addEventListener("click", lockToLandscape);
 })();

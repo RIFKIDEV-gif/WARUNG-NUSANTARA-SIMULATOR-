@@ -61,7 +61,7 @@
     </div>
   </section>
 
-  <!-- ================= LAYAR 3: CUTSCENE 2 JUDUL GAME (5 DETIK) ================= -->
+  <!-- ================= LAYAR 3: CUTSCENE 2 JUDUL GAME ================= -->
   <section id="cutscene-game" class="screen">
     <div class="game-intro-wrap">
       <div class="gold-divider"></div>
@@ -72,7 +72,7 @@
 
     <div class="loader-wrap">
       <div class="loader-meta">
-        <span id="game-load-status">Memuat dunia 3D & aset warung...</span>
+        <span id="game-load-status">Memuat kota 3D & aset warung...</span>
         <span id="game-load-percent">0%</span>
       </div>
       <div class="loader-bar-bg">
@@ -135,11 +135,27 @@
     <!-- NOTIFIKASI TOAST -->
     <div id="game-toast" class="game-toast">Selamat datang di Warung Nusantara!</div>
 
+    <!-- PROGRESS BAR MEMASAK (ANTI-SPAM) -->
+    <div id="cook-progress-wrap" class="cook-progress-wrap hidden">
+      <div class="cook-progress-label" id="cook-progress-text">Memasak pesanan...</div>
+      <div class="cook-progress-bg">
+        <div id="cook-progress-fill" class="cook-progress-fill"></div>
+      </div>
+    </div>
+
+    <!-- VIRTUAL JOYSTICK JALAN 3D -->
+    <div id="joystick-zone" class="joystick-zone" aria-label="Joystick Jalan">
+      <div class="joystick-base">
+        <div id="joystick-stick" class="joystick-stick"></div>
+      </div>
+      <span class="joystick-hint">JALAN</span>
+    </div>
+
     <!-- DOCK MENU BAWAH -->
     <nav class="hud-dock">
       <button id="btn-cook-serve" class="dock-btn primary-dock" type="button">
-        <span class="dock-title">Masak & Layani</span>
-        <span class="dock-sub" id="stock-summary">Stok: 0</span>
+        <span class="dock-title" id="cook-btn-title">Masak & Layani</span>
+        <span class="dock-sub" id="stock-summary">Stok: 0 | Antre: 0</span>
       </button>
       <button id="btn-open-phone" class="dock-btn" type="button">
         <span class="dock-title">HP Order</span>
@@ -155,7 +171,7 @@
       </button>
     </nav>
 
-    <!-- MODAL 1: SMARTPHONE DALAM GAME (ORDER BARANG) -->
+    <!-- MODAL 1: SMARTPHONE DALAM GAME -->
     <div id="phone-modal" class="modal-overlay hidden">
       <div class="smartphone-frame">
         <div class="phone-notch"></div>
@@ -167,12 +183,12 @@
           <h3>Toko Grosir HP</h3>
           <button class="close-modal-btn" data-close="phone-modal" type="button">Tutup</button>
         </div>
-        <p class="phone-hint">Setiap bahan punya harga beda-beda. Order buat nambah stok masak.</p>
+        <p class="phone-hint">Order bahan masakan biar stok warung selalu siap.</p>
         <div id="phone-shop-list" class="phone-scroll-list"></div>
       </div>
     </div>
 
-    <!-- MODAL 2: HIAS WARUNG (BANGKU, KIPAS, DEKORASI) -->
+    <!-- MODAL 2: HIAS WARUNG -->
     <div id="decor-modal" class="modal-overlay hidden">
       <div class="panel-sheet">
         <div class="panel-header">
@@ -186,7 +202,7 @@
       </div>
     </div>
 
-    <!-- MODAL 3: KELILING KOTA NUSANTARA -->
+    <!-- MODAL 3: KELILING KOTA -->
     <div id="city-modal" class="modal-overlay hidden">
       <div class="panel-sheet">
         <div class="panel-header">
@@ -201,7 +217,7 @@
     </div>
   </section>
 
-  <!-- URUTAN SCRIPT MODULAR (SATU FOLDER) -->
+  <!-- URUTAN SCRIPT MODULAR -->
   <script src="config.js"></script>
   <script src="auth.js"></script>
   <script src="cutscene.js"></script>
