@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Warung Nusantara Simulator 3D - RIFKI DEV</title>
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+
+  <!-- ================= LAYAR 1: LOGIN & DAFTAR ================= -->
+  <section id="auth-screen" class="screen active">
+    <div class="auth-card">
+      <div class="studio-pill">RIFKI DEV NETWORK</div>
+      <h1 class="auth-heading">Warung Nusantara 3D</h1>
+      <p class="auth-desc">Login dulu buat muat progres warung multiplayer kamu.</p>
+
+      <div class="auth-tabs">
+        <button id="tab-login" class="auth-tab active" type="button">Login</button>
+        <button id="tab-register" class="auth-tab" type="button">Daftar Akun</button>
+      </div>
+
+      <form id="auth-form" autocomplete="off">
+        <div class="field-group">
+          <label for="input-username">Username</label>
+          <input id="input-username" type="text" placeholder="Masukkan username..." required minlength="3" maxlength="18" />
+        </div>
+        <div class="field-group">
+          <label for="input-password">Password</label>
+          <input id="input-password" type="password" placeholder="Masukkan password..." required minlength="4" maxlength="32" />
+        </div>
+        <button id="btn-auth-submit" class="btn-gold" type="submit">Login & Masuk Game</button>
+      </form>
+
+      <div id="auth-feedback" class="auth-feedback"></div>
+    </div>
+  </section>
+
+  <!-- ================= LAYAR 2: CUTSCENE 1 STUDIO RIFKI DEV ================= -->
+  <section id="cutscene-studio" class="screen">
+    <div id="studio-ambient-glow" class="ambient-glow"></div>
+    <div class="cutscene-center">
+      <div class="studio-logo-box">
+        <div class="studio-ring"></div>
+        <span class="studio-letter">R</span>
+      </div>
+      <h2 class="studio-title">RIFKI DEV</h2>
+      <p class="studio-subtitle">UNITY-GRADE MOBILE ENGINE</p>
+    </div>
+
+    <div class="loader-wrap">
+      <div class="loader-meta">
+        <span id="studio-status">Mengecek spesifikasi HP...</span>
+        <span id="studio-percent">0%</span>
+      </div>
+      <div class="loader-bar-bg">
+        <div id="studio-bar" class="loader-bar-fill cyan"></div>
+      </div>
+      <div id="device-spec-label" class="spec-readout">Mendeteksi CPU & RAM perangkat...</div>
+    </div>
+  </section>
+
+  <!-- ================= LAYAR 3: CUTSCENE 2 JUDUL GAME (5 DETIK) ================= -->
+  <section id="cutscene-game" class="screen">
+    <div class="game-intro-wrap">
+      <div class="gold-divider"></div>
+      <span class="presents-label">MEMPERSEMBAHKAN</span>
+      <h1 class="game-main-title">WARUNG NUSANTARA</h1>
+      <h2 class="game-sub-title">SIMULATOR</h2>
+    </div>
+
+    <div class="loader-wrap">
+      <div class="loader-meta">
+        <span id="game-load-status">Memuat dunia 3D & aset warung...</span>
+        <span id="game-load-percent">0%</span>
+      </div>
+      <div class="loader-bar-bg">
+        <div id="game-load-bar" class="loader-bar-fill gold"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= LAYAR 4: GAMEPLAY 3D & HUD ================= -->
+  <section id="game-screen" class="screen">
+    <canvas id="unity-3d-canvas"></canvas>
+
+    <!-- HUD ATAS -->
+    <header class="hud-top">
+      <div class="hud-profile">
+        <div class="avatar-badge" id="hud-avatar">R</div>
+        <div>
+          <div class="hud-name" id="hud-username">Player</div>
+          <div class="hud-city" id="hud-city">Kota: Jakarta Selatan</div>
+        </div>
+      </div>
+
+      <div class="hud-stats">
+        <div class="stat-chip">
+          <span class="chip-lbl">Saldo</span>
+          <span class="chip-val gold-txt" id="hud-coins">Rp 0</span>
+        </div>
+        <div class="stat-chip">
+          <span class="chip-lbl">Level</span>
+          <span class="chip-val" id="hud-level">1</span>
+        </div>
+        <div class="stat-chip">
+          <span class="chip-lbl">Suhu</span>
+          <span class="chip-val cyan-txt" id="hud-temp">32°C</span>
+        </div>
+        <div class="stat-chip">
+          <span class="chip-lbl">Rep</span>
+          <span class="chip-val green-txt" id="hud-rep">10</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- BAR MULTIPLAYER & ON MIC -->
+    <div class="multiplayer-bar">
+      <div class="room-info">
+        <span class="live-dot" id="mp-dot"></span>
+        <input id="room-code-input" type="text" value="NUSANTARA-01" maxlength="14" aria-label="Kode Room" />
+        <button id="btn-join-room" class="mini-btn" type="button">Gabung</button>
+      </div>
+
+      <div class="voice-controls">
+        <button id="btn-mic-toggle" class="mic-btn off" type="button">
+          <span id="mic-icon">MIC OFF</span>
+          <span id="mic-level-bar" class="mic-wave"></span>
+        </button>
+        <button id="btn-finish-save" class="save-session-btn" type="button">Selesai & Simpan</button>
+      </div>
+    </div>
+
+    <!-- NOTIFIKASI TOAST -->
+    <div id="game-toast" class="game-toast">Selamat datang di Warung Nusantara!</div>
+
+    <!-- DOCK MENU BAWAH -->
+    <nav class="hud-dock">
+      <button id="btn-cook-serve" class="dock-btn primary-dock" type="button">
+        <span class="dock-title">Masak & Layani</span>
+        <span class="dock-sub" id="stock-summary">Stok: 0</span>
+      </button>
+      <button id="btn-open-phone" class="dock-btn" type="button">
+        <span class="dock-title">HP Order</span>
+        <span class="dock-sub">Beli Bahan</span>
+      </button>
+      <button id="btn-open-decor" class="dock-btn" type="button">
+        <span class="dock-title">Hias Warung</span>
+        <span class="dock-sub">Bangku & Kipas</span>
+      </button>
+      <button id="btn-open-city" class="dock-btn" type="button">
+        <span class="dock-title">Keliling Kota</span>
+        <span class="dock-sub">Pindah Cabang</span>
+      </button>
+    </nav>
+
+    <!-- MODAL 1: SMARTPHONE DALAM GAME (ORDER BARANG) -->
+    <div id="phone-modal" class="modal-overlay hidden">
+      <div class="smartphone-frame">
+        <div class="phone-notch"></div>
+        <div class="phone-status-bar">
+          <span>NusantaraNet 5G</span>
+          <span id="phone-balance">Rp 0</span>
+        </div>
+        <div class="phone-header">
+          <h3>Toko Grosir HP</h3>
+          <button class="close-modal-btn" data-close="phone-modal" type="button">Tutup</button>
+        </div>
+        <p class="phone-hint">Setiap bahan punya harga beda-beda. Order buat nambah stok masak.</p>
+        <div id="phone-shop-list" class="phone-scroll-list"></div>
+      </div>
+    </div>
+
+    <!-- MODAL 2: HIAS WARUNG (BANGKU, KIPAS, DEKORASI) -->
+    <div id="decor-modal" class="modal-overlay hidden">
+      <div class="panel-sheet">
+        <div class="panel-header">
+          <div>
+            <h3>Dekorasi & Fasilitas Warung</h3>
+            <p id="decor-stats-summary">Kursi: 0 | Pendingin: 0 | Kenyamanan: 0%</p>
+          </div>
+          <button class="close-modal-btn" data-close="decor-modal" type="button">Tutup</button>
+        </div>
+        <div id="decor-catalog-list" class="panel-grid"></div>
+      </div>
+    </div>
+
+    <!-- MODAL 3: KELILING KOTA NUSANTARA -->
+    <div id="city-modal" class="modal-overlay hidden">
+      <div class="panel-sheet">
+        <div class="panel-header">
+          <div>
+            <h3>Peta Keliling Kota</h3>
+            <p>Penuhi syarat warung buat buka cabang di kota baru.</p>
+          </div>
+          <button class="close-modal-btn" data-close="city-modal" type="button">Tutup</button>
+        </div>
+        <div id="city-list" class="city-scroll-list"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- URUTAN SCRIPT MODULAR (SATU FOLDER) -->
+  <script src="config.js"></script>
+  <script src="auth.js"></script>
+  <script src="cutscene.js"></script>
+  <script src="engine3d.js"></script>
+  <script src="furniture.js"></script>
+  <script src="npc.js"></script>
+  <script src="phone-shop.js"></script>
+  <script src="cities.js"></script>
+  <script src="multiplayer-mic.js"></script>
+  <script src="main.js"></script>
+</body>
+</html>
