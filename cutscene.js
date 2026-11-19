@@ -62,19 +62,18 @@ window.WNS.Cutscene = (function () {
       "studio-percent",
       "studio-status",
       ["Menyiapkan mesin 3D...", "Mengoptimalkan shader HP...", "Studio siap!"],
-      1500,
+      1400,
       () => {
         showScreen("cutscene-game");
         runBarAnimation(
           "game-load-bar",
           "game-load-percent",
           "game-load-status",
-          ["Membangun jalan raya & ruko...", "Menyiapkan karakter R6...", "Membuka pintu warung..."],
-          1600,
+          ["Membangun jalan raya & ruko...", "Menyiapkan karakter R6...", "Membuka lobby warung..."],
+          1500,
           () => {
-            showScreen("game-screen");
-            if (window.WNS.Main && typeof window.WNS.Main.enterWorld === "function") {
-              window.WNS.Main.enterWorld();
+            if (window.WNS.Main && typeof window.WNS.Main.enterLobby === "function") {
+              window.WNS.Main.enterLobby();
             }
           }
         );
@@ -83,6 +82,7 @@ window.WNS.Cutscene = (function () {
   }
 
   return {
-    playSequence
+    playSequence,
+    showScreen
   };
 })();

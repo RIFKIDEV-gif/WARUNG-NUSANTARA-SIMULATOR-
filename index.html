@@ -9,12 +9,15 @@
 </head>
 <body>
 
+  <!-- CANVAS 3D UTAMA (AKTIF DI LOBBY & GAMEPLAY) -->
+  <canvas id="unity-3d-canvas"></canvas>
+
   <!-- ================= LAYAR 1: LOGIN & DAFTAR ================= -->
   <section id="auth-screen" class="screen active">
     <div class="auth-card">
       <div class="studio-pill">RIFKI DEV NETWORK</div>
       <h1 class="auth-heading">Warung Nusantara 3D</h1>
-      <p class="auth-desc">Login dulu buat muat progres warung multiplayer kamu.</p>
+      <p class="auth-desc">Login dulu buat muat progres warung kamu.</p>
 
       <div class="auth-tabs">
         <button id="tab-login" class="auth-tab active" type="button">Login</button>
@@ -81,9 +84,89 @@
     </div>
   </section>
 
-  <!-- ================= LAYAR 4: GAMEPLAY 3D & HUD ================= -->
+  <!-- ================= LAYAR 4: LOBBY UTAMA (KIRI MENU, KANAN CINEMATIC 3D) ================= -->
+  <section id="lobby-screen" class="screen">
+    <div class="lobby-left">
+      <div class="lobby-header">
+        <span class="lobby-badge">RIFKI DEV • 3D EDITION</span>
+        <h1 class="lobby-game-title">WARUNG NUSANTARA SIMLATOR</h1>
+        <div class="lobby-player-strip">
+          <span id="lobby-user-label">Player</span>
+          <span>•</span>
+          <span id="lobby-coins-label" class="gold-txt">Rp 0</span>
+          <span>•</span>
+          <span id="lobby-level-label" class="cyan-txt">Lv. 1</span>
+        </div>
+      </div>
+
+      <!-- PILIHAN MODE MAIN -->
+      <div class="lobby-section">
+        <div class="lobby-sec-title">Pilih Mode Permainan</div>
+        <div class="mode-grid">
+          <button id="btn-mode-single" class="mode-card active" type="button">
+            <strong>Singleplayer</strong>
+            <span>Main solo santai urus warung</span>
+          </button>
+          <button id="btn-mode-multi" class="mode-card" type="button">
+            <strong>Multiplayer</strong>
+            <span>Mabar online + fitur On Mic</span>
+          </button>
+        </div>
+
+        <div id="lobby-room-box" class="lobby-room-box hidden">
+          <label for="lobby-room-input">Kode Room Mabar:</label>
+          <input id="lobby-room-input" type="text" value="NUSANTARA-01" maxlength="14" />
+        </div>
+      </div>
+
+      <!-- SETTING GRAFIK & KONTROL -->
+      <div class="lobby-section">
+        <div class="lobby-sec-title">Setting Grafik & Kamera</div>
+
+        <div class="setting-row">
+          <span>Kualitas Grafik</span>
+          <div class="seg-group" id="gfx-seg-group">
+            <button type="button" class="seg-btn" data-gfx="LOW">Kentang</button>
+            <button type="button" class="seg-btn active" data-gfx="MID">Sedang</button>
+            <button type="button" class="seg-btn" data-gfx="HIGH">Tinggi</button>
+          </div>
+        </div>
+
+        <div class="setting-row">
+          <span>Kamera Awal</span>
+          <div class="seg-group" id="cam-seg-group">
+            <button type="button" class="seg-btn active" data-cam="third">Belakang</button>
+            <button type="button" class="seg-btn" data-cam="first">POV Depan</button>
+          </div>
+        </div>
+
+        <div class="setting-row">
+          <span>Sensitivitas Geser</span>
+          <div class="seg-group" id="sens-seg-group">
+            <button type="button" class="seg-btn" data-sens="0.6">Pelan</button>
+            <button type="button" class="seg-btn active" data-sens="1.0">Normal</button>
+            <button type="button" class="seg-btn" data-sens="1.5">Cepat</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="lobby-actions">
+        <button id="btn-start-play" class="btn-gold lobby-play-btn" type="button">MULAI MAIN</button>
+        <button id="btn-lobby-logout" class="lobby-logout-btn" type="button">Ganti Akun</button>
+      </div>
+    </div>
+
+    <!-- AREA KANAN: CINEMATIC 3D VIEW -->
+    <div class="lobby-right">
+      <div class="cinematic-tag">
+        <span class="cine-dot"></span>
+        <span id="cinematic-caption">CINEMATIC 3D • WARUNG, JALAN RAYA & KOTA</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= LAYAR 5: GAMEPLAY 3D & HUD ================= -->
   <section id="game-screen" class="screen">
-    <canvas id="unity-3d-canvas"></canvas>
 
     <!-- HUD ATAS -->
     <header class="hud-top">
@@ -115,20 +198,24 @@
       </div>
     </header>
 
-    <!-- BAR MULTIPLAYER & ON MIC -->
+    <!-- BAR MODE, KAMERA & MULTIPLAYER -->
     <div class="multiplayer-bar">
-      <div class="room-info">
+      <div class="room-info" id="mp-room-controls">
         <span class="live-dot" id="mp-dot"></span>
         <input id="room-code-input" type="text" value="NUSANTARA-01" maxlength="14" aria-label="Kode Room" />
         <button id="btn-join-room" class="mini-btn" type="button">Gabung</button>
       </div>
 
+      <div class="solo-badge hidden" id="solo-mode-badge">MODE SINGLEPLAYER</div>
+
       <div class="voice-controls">
+        <button id="btn-toggle-camera" class="cam-switch-btn" type="button">Kamera: Belakang</button>
         <button id="btn-mic-toggle" class="mic-btn off" type="button">
           <span id="mic-icon">MIC OFF</span>
           <span id="mic-level-bar" class="mic-wave"></span>
         </button>
-        <button id="btn-finish-save" class="save-session-btn" type="button">Selesai & Simpan</button>
+        <button id="btn-finish-save" class="save-session-btn" type="button">Simpan</button>
+        <button id="btn-back-lobby" class="mini-btn" type="button">Lobby</button>
       </div>
     </div>
 

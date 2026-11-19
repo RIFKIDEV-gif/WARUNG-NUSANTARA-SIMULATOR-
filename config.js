@@ -80,6 +80,9 @@ window.WNS.State = {
   currentUser: null,
   saveData: null,
   deviceTier: "MID",
+  gameMode: "singleplayer", // "singleplayer" | "multiplayer"
+  cameraMode: "third",      // "third" | "first"
+  camSensitivity: 1.0,
   currentRoom: "NUSANTARA-01",
   micEnabled: false
 };

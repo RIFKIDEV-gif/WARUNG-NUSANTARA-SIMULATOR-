@@ -9,35 +9,38 @@ window.WNS.Engine3D = (function () {
   let playerWalkPhase = 0;
   let isPlayerCarrying = false;
 
+  // Mode Kamera & Cinematic Lobby
+  let cameraMode = "third"; // "third" (Belakang) | "first" (POV Depan)
+  let isCinematicLobby = false;
+  let cinematicTime = 0;
+
   // Input Joystick & Keyboard
   let joyX = 0;
   let joyY = 0;
   const keysPressed = {};
 
-  // Kamera Third-Person Orbit
+  // Kamera Orbit / POV Look
   let camYaw = 0.25;
-  let camPitch = 0.38;
+  let camPitch = 0.35;
   let camDist = 9.5;
   let isDraggingCam = false;
   let prevTouchX = 0;
   let prevTouchY = 0;
 
-  // Kendaraan bergerak di jalan kota
   const movingCars = [];
   const tickCallbacks = [];
   const clock = new THREE.Clock();
 
-  // Bounding box penghalang agar player tidak tembus dinding/rumah
   const colliders = [
-    { minX: -5.4, maxX: 5.4, minZ: -5.6, maxZ: -4.8 }, // Dinding belakang warung
-    { minX: -5.4, maxX: -4.8, minZ: -5.6, maxZ: 4.2 }, // Dinding kiri warung
-    { minX: 4.8, maxX: 5.4, minZ: -5.6, maxZ: 4.2 },   // Dinding kanan warung
-    { minX: -4.3, maxX: 2.6, minZ: -4.4, maxZ: -2.9 }, // Meja kompor & etalase dapur
-    { minX: -24, maxX: -12, minZ: -16, maxZ: -5 },     // Rumah kiri
-    { minX: 12, maxX: 24, minZ: -16, maxZ: -5 },       // Ruko kanan
-    { minX: -26, maxX: -13, minZ: 23, maxZ: 34 },      // Rumah seberang 1
-    { minX: -5, maxX: 8, minZ: 23, maxZ: 34 },         // Rumah seberang 2
-    { minX: 14, maxX: 27, minZ: 23, maxZ: 34 }         // Rumah seberang 3
+    { minX: -5.4, maxX: 5.4, minZ: -5.6, maxZ: -4.8 },
+    { minX: -5.4, maxX: -4.8, minZ: -5.6, maxZ: 4.2 },
+    { minX: 4.8, maxX: 5.4, minZ: -5.6, maxZ: 4.2 },
+    { minX: -4.3, maxX: 2.6, minZ: -4.4, maxZ: -2.9 },
+    { minX: -24, maxX: -12, minZ: -16, maxZ: -5 },
+    { minX: 12, maxX: 24, minZ: -16, maxZ: -5 },
+    { minX: -26, maxX: -13, minZ: 23, maxZ: 34 },
+    { minX: -5, maxX: 8, minZ: 23, maxZ: 34 },
+    { minX: 14, maxX: 27, minZ: 23, maxZ: 34 }
   ];
 
   /* ================= GENERATOR TEKSTUR PROSEDURAL ================= */
@@ -228,7 +231,6 @@ window.WNS.Engine3D = (function () {
 
     const torso = new THREE.Mesh(new THREE.BoxGeometry(0.96, 1.04, 0.5), torsoMat);
     torso.position.y = 1.48;
-    torso.castShadow = true;
     root.add(torso);
 
     const headGroup = new THREE.Group();
@@ -616,7 +618,7 @@ window.WNS.Engine3D = (function () {
     spawnCityCar(0xf8fafc, 18.0, 7.5, -1);
   }
 
-  /* ================= COLLISION & GERAK PLAYER ================= */
+  /* ================= COLLISION, KAMERA BELAKANG/POV & CINEMATIC ================= */
   function canMoveTo(nx, nz) {
     if (nx < -44 || nx > 44 || nz < -34 || nz > 36) return false;
     const r = 0.55;
@@ -629,8 +631,29 @@ window.WNS.Engine3D = (function () {
     return true;
   }
 
+  function updateCinematicLobby(delta) {
+    cinematicTime += delta * 0.24;
+    if (playerChar) playerChar.root.visible = true;
+
+    // Gerakan kamera sinematik mulus menyorot Warung, Jalan Raya, Mobil & Pepohonan
+    const angle = Math.sin(cinematicTime) * 0.65;
+    const radius = 14.5 + Math.cos(cinematicTime * 0.7) * 3.0;
+    const camX = Math.sin(angle) * radius;
+    const camZ = 8.5 + Math.cos(angle) * 8.5;
+    const camY = 5.4 + Math.sin(cinematicTime * 1.2) * 1.2;
+
+    camera.position.lerp(new THREE.Vector3(camX, camY, camZ), 0.08);
+    // Geser titik pandang sedikit ke kiri agar warung & jalan raya tampil pas di sisi kanan layar
+    camera.lookAt(-3.6, 1.9, 3.2);
+  }
+
   function updatePlayer(delta) {
     if (!playerChar) return;
+
+    if (isCinematicLobby) {
+      updateCinematicLobby(delta);
+      return;
+    }
 
     let inX = joyX;
     let inY = joyY;
@@ -671,30 +694,50 @@ window.WNS.Engine3D = (function () {
       playerChar.setPose(isPlayerCarrying ? "carry" : "idle", playerWalkPhase);
     }
 
-    const targetX = playerPos.x + Math.sin(camYaw) * camDist * Math.cos(camPitch);
-    const targetY = playerPos.y + 1.8 + Math.sin(camPitch) * camDist;
-    const targetZ = playerPos.z + Math.cos(camYaw) * camDist * Math.cos(camPitch);
+    if (cameraMode === "first") {
+      // KAMERA POV DEPAN (FIRST-PERSON EYE LEVEL)
+      playerChar.root.visible = false;
+      playerChar.root.rotation.y = camYaw + Math.PI;
 
-    camera.position.lerp(new THREE.Vector3(targetX, targetY, targetZ), 0.16);
-    camera.lookAt(playerPos.x, playerPos.y + 1.5, playerPos.z);
+      const eyeY = playerPos.y + 2.36 + (mag > 0.08 ? Math.abs(Math.cos(playerWalkPhase)) * 0.05 : 0);
+      camera.position.set(playerPos.x, eyeY, playerPos.z);
+
+      const lookX = playerPos.x - Math.sin(camYaw) * Math.cos(camPitch) * 6;
+      const lookY = eyeY - Math.sin(camPitch) * 5;
+      const lookZ = playerPos.z - Math.cos(camYaw) * Math.cos(camPitch) * 6;
+      camera.lookAt(lookX, lookY, lookZ);
+    } else {
+      // KAMERA BELAKANG (THIRD-PERSON ORBIT)
+      playerChar.root.visible = true;
+      const safePitch = Math.max(0.16, camPitch);
+      const targetX = playerPos.x + Math.sin(camYaw) * camDist * Math.cos(safePitch);
+      const targetY = playerPos.y + 1.8 + Math.sin(safePitch) * camDist;
+      const targetZ = playerPos.z + Math.cos(camYaw) * camDist * Math.cos(safePitch);
+
+      camera.position.lerp(new THREE.Vector3(targetX, targetY, targetZ), 0.18);
+      camera.lookAt(playerPos.x, playerPos.y + 1.5, playerPos.z);
+    }
   }
 
   function setupCameraControls(canvas) {
     canvas.addEventListener("pointerdown", (e) => {
+      if (isCinematicLobby) return;
       isDraggingCam = true;
       prevTouchX = e.clientX;
       prevTouchY = e.clientY;
     });
 
     window.addEventListener("pointermove", (e) => {
-      if (!isDraggingCam) return;
+      if (!isDraggingCam || isCinematicLobby) return;
+      const sens = window.WNS.State.camSensitivity || 1.0;
       const dx = e.clientX - prevTouchX;
       const dy = e.clientY - prevTouchY;
       prevTouchX = e.clientX;
       prevTouchY = e.clientY;
 
-      camYaw -= dx * 0.0075;
-      camPitch = Math.max(0.18, Math.min(1.05, camPitch + dy * 0.0055));
+      camYaw -= dx * 0.0075 * sens;
+      const minPitch = cameraMode === "first" ? -0.65 : 0.16;
+      camPitch = Math.max(minPitch, Math.min(1.05, camPitch + dy * 0.0055 * sens));
     });
 
     window.addEventListener("pointerup", () => {
@@ -735,7 +778,7 @@ window.WNS.Engine3D = (function () {
     scene.background = new THREE.Color(0x7dd3fc);
     scene.fog = new THREE.FogExp2(0xbae6fd, 0.012);
 
-    camera = new THREE.PerspectiveCamera(58, window.innerWidth / window.innerHeight, 0.1, 160);
+    camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 170);
 
     const tier = window.WNS.State.deviceTier || "MID";
     renderer = new THREE.WebGLRenderer({
@@ -744,7 +787,7 @@ window.WNS.Engine3D = (function () {
       powerPreference: "high-performance"
     });
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(tier === "LOW" ? 1 : Math.min(window.devicePixelRatio || 1, 1.75));
+    applyGraphicsQuality(tier);
 
     const hemiLight = new THREE.HemisphereLight(0xffffff, 0x3f7d3a, 0.95);
     scene.add(hemiLight);
@@ -787,15 +830,46 @@ window.WNS.Engine3D = (function () {
     animateLoop();
   }
 
+  function setCameraMode(mode) {
+    cameraMode = mode === "first" ? "first" : "third";
+    window.WNS.State.cameraMode = cameraMode;
+    if (cameraMode === "first") {
+      camPitch = 0.05;
+    } else {
+      camPitch = 0.35;
+    }
+  }
+
+  function applyGraphicsQuality(tier) {
+    window.WNS.State.deviceTier = tier;
+    if (tier === "LOW") {
+      document.body.classList.add("low-spec");
+      if (renderer) renderer.setPixelRatio(1);
+      if (scene && scene.fog) scene.fog.density = 0.017;
+    } else if (tier === "HIGH") {
+      document.body.classList.remove("low-spec");
+      if (renderer) renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2.0));
+      if (scene && scene.fog) scene.fog.density = 0.0075;
+    } else {
+      document.body.classList.remove("low-spec");
+      if (renderer) renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+      if (scene && scene.fog) scene.fog.density = 0.012;
+    }
+  }
+
   function applyCityTheme(cityObj) {
     if (!scene || !cityObj) return;
     scene.background = new THREE.Color(cityObj.skyColor || 0x7dd3fc);
-    scene.fog = new THREE.FogExp2(cityObj.fogColor || 0xbae6fd, 0.012);
+    if (scene.fog) scene.fog.color = new THREE.Color(cityObj.fogColor || 0xbae6fd);
   }
 
   return {
     init,
     applyCityTheme,
+    applyGraphicsQuality,
+    setCameraMode,
+    getCameraMode: () => cameraMode,
+    setCinematicMode: (val) => { isCinematicLobby = !!val; },
     createRobloxCharacter,
     registerTick: (cb) => tickCallbacks.push(cb),
     getScene: () => scene,
@@ -807,5 +881,3 @@ window.WNS.Engine3D = (function () {
     setJoystickInput: (x, y) => { joyX = x; joyY = y; }
   };
 })();
-
-  

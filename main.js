@@ -2,7 +2,39 @@ window.WNS = window.WNS || {};
 
 window.WNS.Main = (function () {
   let worldStarted = false;
+  let lobbyBound = false;
   let lowFpsCounter = 0;
+
+  function showScreen(screenId) {
+    document.querySelectorAll(".screen").forEach((s) => s.classList.remove("active"));
+    const target = document.getElementById(screenId);
+    if (target) target.classList.add("active");
+  }
+
+  function ensureWorldInitialized() {
+    if (worldStarted) return;
+    worldStarted = true;
+
+    window.WNS.Engine3D.init();
+    window.WNS.Furniture.init();
+    window.WNS.NPC.init();
+    window.WNS.PhoneShop.init();
+    window.WNS.Cities.init();
+    window.WNS.MultiplayerMic.init();
+
+    setupVirtualJoystick();
+    setupModalClosers();
+    setupGameplayButtons();
+    attachPerformanceGuard();
+
+    const activeCity = window.WNS.Cities.getCurrentCity();
+    window.WNS.Engine3D.applyCityTheme(activeCity);
+    window.WNS.Furniture.rebuildAll();
+
+    // Spawn 2 pelanggan awal agar tampilan 3D di Lobby & Gameplay langsung hidup
+    window.WNS.NPC.spawnCustomer();
+    setTimeout(() => window.WNS.NPC.spawnCustomer(), 1600);
+  }
 
   function refreshHud() {
     const user = window.WNS.State.currentUser;
@@ -33,6 +65,142 @@ window.WNS.Main = (function () {
       const antre = window.WNS.NPC ? window.WNS.NPC.getWaitingCount() : 0;
       stockEl.textContent = `Stok: ${window.WNS.PhoneShop.getTotalStockCount()} | Antre: ${antre}`;
     }
+
+    // Update info di Lobby juga
+    const lUser = document.getElementById("lobby-user-label");
+    const lCoins = document.getElementById("lobby-coins-label");
+    const lLevel = document.getElementById("lobby-level-label");
+    if (user && lUser) lUser.textContent = user.username;
+    if (lCoins) lCoins.textContent = `Rp ${(saveData.coins || 0).toLocaleString("id-ID")}`;
+    if (lLevel) lLevel.textContent = `Lv. ${saveData.level || 1}`;
+  }
+
+  function updateCameraButtonLabel() {
+    const camBtn = document.getElementById("btn-toggle-camera");
+    if (!camBtn) return;
+    const mode = window.WNS.Engine3D.getCameraMode();
+    camBtn.textContent = mode === "first" ? "Kamera: POV Depan" : "Kamera: Belakang";
+  }
+
+  function bindLobbyControls() {
+    if (lobbyBound) return;
+    lobbyBound = true;
+
+    const btnSingle = document.getElementById("btn-mode-single");
+    const btnMulti = document.getElementById("btn-mode-multi");
+    const roomBox = document.getElementById("lobby-room-box");
+
+    if (btnSingle) {
+      btnSingle.addEventListener("click", () => {
+        window.WNS.State.gameMode = "singleplayer";
+        btnSingle.classList.add("active");
+        if (btnMulti) btnMulti.classList.remove("active");
+        if (roomBox) roomBox.classList.add("hidden");
+      });
+    }
+
+    if (btnMulti) {
+      btnMulti.addEventListener("click", () => {
+        window.WNS.State.gameMode = "multiplayer";
+        btnMulti.classList.add("active");
+        if (btnSingle) btnSingle.classList.remove("active");
+        if (roomBox) roomBox.classList.remove("hidden");
+      });
+    }
+
+    // Setting Kualitas Grafik
+    document.querySelectorAll("#gfx-seg-group .seg-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll("#gfx-seg-group .seg-btn").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        const tier = btn.getAttribute("data-gfx");
+        window.WNS.Engine3D.applyGraphicsQuality(tier);
+      });
+    });
+
+    // Setting Kamera Awal
+    document.querySelectorAll("#cam-seg-group .seg-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll("#cam-seg-group .seg-btn").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        const cam = btn.getAttribute("data-cam");
+        window.WNS.Engine3D.setCameraMode(cam);
+      });
+    });
+
+    // Setting Sensitivitas Geser
+    document.querySelectorAll("#sens-seg-group .seg-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll("#sens-seg-group .seg-btn").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        window.WNS.State.camSensitivity = parseFloat(btn.getAttribute("data-sens")) || 1.0;
+      });
+    });
+
+    // Tombol MULAI MAIN dari Lobby
+    const playBtn = document.getElementById("btn-start-play");
+    if (playBtn) {
+      playBtn.addEventListener("click", () => {
+        enterWorld();
+      });
+    }
+
+    // Tombol Ganti Akun di Lobby
+    const logoutBtn = document.getElementById("btn-lobby-logout");
+    if (logoutBtn) {
+      logoutBtn.addEventListener("click", () => {
+        window.WNS.Engine3D.setCinematicMode(false);
+        showScreen("auth-screen");
+      });
+    }
+  }
+
+  function enterLobby() {
+    ensureWorldInitialized();
+    bindLobbyControls();
+
+    const activeCity = window.WNS.Cities.getCurrentCity();
+    window.WNS.Engine3D.applyCityTheme(activeCity);
+    window.WNS.Furniture.rebuildAll();
+    refreshHud();
+
+    // Aktifkan kamera cinematic di sisi kanan layar Lobby
+    window.WNS.Engine3D.setCinematicMode(true);
+    showScreen("lobby-screen");
+  }
+
+  function enterWorld() {
+    ensureWorldInitialized();
+
+    const activeCity = window.WNS.Cities.getCurrentCity();
+    window.WNS.Engine3D.applyCityTheme(activeCity);
+    window.WNS.Furniture.rebuildAll();
+    window.WNS.Engine3D.setCinematicMode(false);
+
+    // Atur tampilan bar sesuai mode Singleplayer vs Multiplayer
+    const isMulti = window.WNS.State.gameMode === "multiplayer";
+    const mpRoomControls = document.getElementById("mp-room-controls");
+    const soloBadge = document.getElementById("solo-mode-badge");
+    const micBtn = document.getElementById("btn-mic-toggle");
+    const lobbyRoomInput = document.getElementById("lobby-room-input");
+    const hudRoomInput = document.getElementById("room-code-input");
+
+    if (mpRoomControls) mpRoomControls.classList.toggle("hidden", !isMulti);
+    if (micBtn) micBtn.classList.toggle("hidden", !isMulti);
+    if (soloBadge) soloBadge.classList.toggle("hidden", isMulti);
+
+    if (isMulti && lobbyRoomInput && hudRoomInput) {
+      const code = (lobbyRoomInput.value || "NUSANTARA-01").trim().toUpperCase();
+      hudRoomInput.value = code;
+      window.WNS.State.currentRoom = code;
+    }
+
+    updateCameraButtonLabel();
+    refreshHud();
+    showScreen("game-screen");
+
+    const modeText = isMulti ? `Multiplayer (Room ${window.WNS.State.currentRoom})` : "Singleplayer";
+    window.WNS.showToast(`Masuk mode ${modeText}! Pakai joystick kiri buat jalan.`);
   }
 
   function setupVirtualJoystick() {
@@ -106,6 +274,28 @@ window.WNS.Main = (function () {
   }
 
   function setupGameplayButtons() {
+    // Ganti Kamera Belakang <-> Kamera POV Depan
+    const camToggleBtn = document.getElementById("btn-toggle-camera");
+    if (camToggleBtn) {
+      camToggleBtn.addEventListener("click", () => {
+        const nextMode = window.WNS.Engine3D.getCameraMode() === "third" ? "first" : "third";
+        window.WNS.Engine3D.setCameraMode(nextMode);
+        updateCameraButtonLabel();
+        window.WNS.showToast(
+          nextMode === "first" ? "Beralih ke Kamera POV Depan" : "Beralih ke Kamera Belakang"
+        );
+      });
+    }
+
+    // Kembali ke Lobby
+    const backLobbyBtn = document.getElementById("btn-back-lobby");
+    if (backLobbyBtn) {
+      backLobbyBtn.addEventListener("click", () => {
+        window.WNS.Auth.saveMultiplayerProgress(false);
+        enterLobby();
+      });
+    }
+
     const cookBtn = document.getElementById("btn-cook-serve");
     if (cookBtn) {
       cookBtn.addEventListener("click", () => {
@@ -123,10 +313,10 @@ window.WNS.Main = (function () {
         const totalMatches = (window.WNS.State.saveData && window.WNS.State.saveData.matchesCompleted) || 1;
 
         saveBtn.disabled = false;
-        saveBtn.textContent = "Selesai & Simpan";
+        saveBtn.textContent = "Simpan";
 
         if (ok) {
-          window.WNS.showToast(`Sesi #${totalMatches} selesai! Progres tersimpan ke akun.`);
+          window.WNS.showToast(`Sesi #${totalMatches} tersimpan ke akun!`);
         } else {
           window.WNS.showToast("Gagal menyimpan progres, coba lagi.");
         }
@@ -141,9 +331,8 @@ window.WNS.Main = (function () {
       if (delta > 0.065) {
         lowFpsCounter += 1;
         if (lowFpsCounter > 90) {
-          window.WNS.State.deviceTier = "LOW";
-          document.body.classList.add("low-spec");
-          window.WNS.showToast("Mode Hemat HP Kentang diaktifkan otomatis.");
+          window.WNS.Engine3D.applyGraphicsQuality("LOW");
+          window.WNS.showToast("Grafik otomatis disesuaikan ke mode Kentang biar lancar.");
         }
       } else {
         lowFpsCounter = Math.max(0, lowFpsCounter - 1);
@@ -151,39 +340,12 @@ window.WNS.Main = (function () {
     });
   }
 
-  function enterWorld() {
-    if (!worldStarted) {
-      worldStarted = true;
-
-      window.WNS.Engine3D.init();
-      window.WNS.Furniture.init();
-      window.WNS.NPC.init();
-      window.WNS.PhoneShop.init();
-      window.WNS.Cities.init();
-      window.WNS.MultiplayerMic.init();
-
-      setupVirtualJoystick();
-      setupModalClosers();
-      setupGameplayButtons();
-      attachPerformanceGuard();
-    }
-
-    const activeCity = window.WNS.Cities.getCurrentCity();
-    window.WNS.Engine3D.applyCityTheme(activeCity);
-    window.WNS.Furniture.rebuildAll();
-    refreshHud();
-
-    window.WNS.NPC.spawnCustomer();
-    setTimeout(() => window.WNS.NPC.spawnCustomer(), 1800);
-
-    window.WNS.showToast(`Selamat datang di ${activeCity.name}! Pakai joystick kiri buat jalan.`);
-  }
-
   document.addEventListener("DOMContentLoaded", () => {
     if (window.WNS.Auth) window.WNS.Auth.init();
   });
 
   return {
+    enterLobby,
     enterWorld,
     refreshHud
   };
