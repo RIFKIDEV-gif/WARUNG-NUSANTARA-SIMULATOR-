@@ -3,20 +3,20 @@ window.WNS = window.WNS || {};
 window.WNS.NPC = (function () {
   const MAX_NPCS = 4;
 
-  // 4 titik antrean berbeda di depan konter biar NPC nggak pernah numpuk
+  // 4 titik antrean rapi di depan meja racik yang baru (z = -0.35) biar label tidak saling tumpang tindih
   const QUEUE_SLOTS = [
-    { x: -2.5, z: -1.7 },
-    { x: -0.8, z: -1.7 },
-    { x: 0.9, z: -1.7 },
-    { x: 2.6, z: -1.7 }
+    { x: -3.2, z: -0.35 },
+    { x: -1.1, z: -0.35 },
+    { x: 1.0, z: -0.35 },
+    { x: 3.1, z: -0.35 }
   ];
 
-  // 4 titik meja makan terpisah setelah pesanan disajikan
+  // 4 titik meja makan pelanggan
   const DINING_SLOTS = [
-    { x: -3.5, z: 1.1 },
-    { x: -1.2, z: 1.5 },
-    { x: 1.2, z: 1.5 },
-    { x: 3.5, z: 1.1 }
+    { x: -3.5, z: 1.8 },
+    { x: -1.2, z: 2.1 },
+    { x: 1.2, z: 2.1 },
+    { x: 3.5, z: 1.8 }
   ];
 
   const OUTFIT_PRESETS = [
@@ -27,51 +27,40 @@ window.WNS.NPC = (function () {
     { outfitStyle: "casual", shirtHex: "#059669", accentHex: "#fde68a", pantsColor: 0x1f2937, hatType: "fedora", skinColor: 0xf1c27d }
   ];
 
+  const INGREDIENT_NAMES = {
+    wadah: "Mangkok / Piring",
+    mie: "Mie Kuning",
+    nasi: "Nasi Putih",
+    ayam: "Ayam Suwir",
+    sayur: "Sayur Sawi",
+    telur: "Telur & Bumbu",
+    bakso: "Bakso / Daging",
+    sate: "Tusuk Sate",
+    kuah: "Kuah / Saus",
+    es_teh: "Teh & Es"
+  };
+
+  // Urutan bahan yang harus ditekan 1 per 1 di atas meja 3D!
   const DISH_RECIPES = {
-    nasi_goreng: {
-      dishName: "Nasi Goreng Spesial",
-      steps: [
-        { type: "tap", title: "Step 1: Siapkan Wajan", btn: "Nyalakan Kompor & Tuang Minyak", hint: "Tap tombol buat panasin minyak di wajan." },
-        { type: "multitap", target: 3, title: "Step 2: Tumis Bumbu & Telur", btn: "Aduk Tumisan Bumbu", hint: "Tap 3x buat ngaduk bumbu sampai harum." },
-        { type: "hold", duration: 1400, title: "Step 3: Goreng Nasi & Kecap", btn: "Tahan: Goreng Nasi (1.4 dtk)", hint: "Tahan tombol sampai nasi matang merata." },
-        { type: "serve", title: "Step 4: Plating & Antar", btn: "Sajikan ke Pelanggan", hint: "Pesanan siap! Tap buat antar ke pelanggan." }
-      ]
-    },
     mie_ayam: {
       dishName: "Mie Ayam Bakso",
-      steps: [
-        { type: "tap", title: "Step 1: Didihkan Air Panci", btn: "Nyalakan Api Rebusan", hint: "Tap buat panasin kuah rebusan mie." },
-        { type: "hold", duration: 1400, title: "Step 2: Rebus Mie Telur", btn: "Tahan: Rebus Mie (1.4 dtk)", hint: "Tahan tombol sampai mie kenyal matang." },
-        { type: "multitap", target: 3, title: "Step 3: Racik Bumbu & Topping", btn: "Aduk Mie & Ayam Kecap", hint: "Tap 3x buat ngaduk bumbu mangkok & bakso." },
-        { type: "serve", title: "Step 4: Siram Kuah & Antar", btn: "Sajikan ke Pelanggan", hint: "Mie ayam hangat siap disajikan!" }
-      ]
+      sequence: ["wadah", "mie", "ayam", "sayur", "bakso", "kuah"]
+    },
+    nasi_goreng: {
+      dishName: "Nasi Goreng Spesial",
+      sequence: ["wadah", "nasi", "telur", "ayam", "sayur"]
     },
     sate_ayam: {
       dishName: "Sate Ayam Madura",
-      steps: [
-        { type: "tap", title: "Step 1: Siapkan Pemanggang", btn: "Nyalakan Bara Arang", hint: "Tap buat nyalain bara pemanggang sate." },
-        { type: "hold", duration: 1500, title: "Step 2: Bakar Tusuk Sate", btn: "Tahan: Bakar Sate (1.5 dtk)", hint: "Tahan tombol sampai daging sate kecokelatan." },
-        { type: "multitap", target: 3, title: "Step 3: Kipas & Lumuri Bumbu", btn: "Kipas & Oles Bumbu Kacang", hint: "Tap 3x buat ngipas bara dan lumuri bumbu." },
-        { type: "serve", title: "Step 4: Tabur Bawang & Antar", btn: "Sajikan ke Pelanggan", hint: "Sate ayam siap diantar ke meja!" }
-      ]
+      sequence: ["wadah", "sate", "kuah", "nasi"]
     },
     es_teh: {
-      dishName: "Es Teh & Kopi Segar",
-      steps: [
-        { type: "tap", title: "Step 1: Siapkan Gelas", btn: "Tuang Seduhan Teh / Kopi", hint: "Tap buat nuang biang teh ke gelas." },
-        { type: "multitap", target: 3, title: "Step 2: Aduk Gula Cair", btn: "Aduk Gelas", hint: "Tap 3x sampai gula larut sempurna." },
-        { type: "hold", duration: 1100, title: "Step 3: Isi Es Batu Kristal", btn: "Tahan: Masukkan Es Batu", hint: "Tahan sebentar sampai gelas penuh es." },
-        { type: "serve", title: "Step 4: Pasang Sedotan & Antar", btn: "Sajikan ke Pelanggan", hint: "Minuman dingin siap menyegarkan pelanggan!" }
-      ]
+      dishName: "Es Teh Segar",
+      sequence: ["wadah", "es_teh", "kuah"]
     },
     rendang: {
       dishName: "Rendang Daging VIP",
-      steps: [
-        { type: "tap", title: "Step 1: Panaskan Santan", btn: "Tuang Santan & Rempah", hint: "Tap buat mulai masak bumbu rendang." },
-        { type: "multitap", target: 4, title: "Step 2: Aduk Santan Perlahan", btn: "Aduk Santan Biar Gurih", hint: "Tap 4x supaya santan nggak pecah." },
-        { type: "hold", duration: 1600, title: "Step 3: Ungkep Daging Empuk", btn: "Tahan: Ungkep Rendang (1.6 dtk)", hint: "Tahan sampai bumbu meresap ke daging." },
-        { type: "serve", title: "Step 4: Sajikan Porsi VIP", btn: "Sajikan ke Pelanggan VIP", hint: "Menu spesial VIP siap disajikan!" }
-      ]
+      sequence: ["wadah", "nasi", "bakso", "sayur", "kuah"]
     }
   };
 
@@ -79,20 +68,15 @@ window.WNS.NPC = (function () {
   let activeNpcs = [];
   let customerCounter = 0;
   let pendingSpawnTimer = null;
-
-  // State Memasak Manual Step-by-Step
   let selectedNpcId = null;
-  let holdRafId = null;
-  let holdStartTime = 0;
-  let isHoldingStep = false;
 
   function getMenuItems() {
     if (window.WNS.Config && Array.isArray(window.WNS.Config.SHOP_ITEMS)) {
       return window.WNS.Config.SHOP_ITEMS;
     }
     return [
-      { id: "nasi_goreng", name: "Paket Bahan Nasi Goreng", cost: 18000, sellPrice: 32000, qty: 3 },
       { id: "mie_ayam", name: "Paket Mie Ayam Bakso", cost: 24000, sellPrice: 42000, qty: 3 },
+      { id: "nasi_goreng", name: "Paket Bahan Nasi Goreng", cost: 18000, sellPrice: 32000, qty: 3 },
       { id: "es_teh", name: "Paket Es Teh & Kopi", cost: 12000, sellPrice: 22000, qty: 4 }
     ];
   }
@@ -102,7 +86,6 @@ window.WNS.NPC = (function () {
     const sd = window.WNS.State && window.WNS.State.saveData;
     const inv = (sd && (sd.inventory || sd.stock)) || {};
 
-    // Prioritaskan menu yang stok bahannya masih ada biar pemain bisa langsung masak
     const available = items.filter((it) => (inv[it.id] || 0) > 0);
     const pool = available.length > 0 ? available : items;
     return pool[Math.floor(Math.random() * pool.length)];
@@ -128,13 +111,13 @@ window.WNS.NPC = (function () {
 
   function createLabelSprite(titleText, subText, badgeColor) {
     const canvas = document.createElement("canvas");
-    canvas.width = 320;
-    canvas.height = 110;
+    canvas.width = 280;
+    canvas.height = 96;
     const ctx = canvas.getContext("2d");
 
     ctx.fillStyle = "rgba(15, 23, 42, 0.88)";
     ctx.beginPath();
-    ctx.roundRect(10, 10, 300, 90, 18);
+    ctx.roundRect(10, 10, 260, 76, 16);
     ctx.fill();
 
     ctx.strokeStyle = badgeColor || "#f59e0b";
@@ -142,30 +125,30 @@ window.WNS.NPC = (function () {
     ctx.stroke();
 
     ctx.fillStyle = "#ffffff";
-    ctx.font = "bold 24px sans-serif";
+    ctx.font = "bold 21px sans-serif";
     ctx.textAlign = "center";
-    ctx.fillText(titleText, 160, 48);
+    ctx.fillText(titleText, 140, 42);
 
     ctx.fillStyle = badgeColor || "#fcd34d";
-    ctx.font = "bold 20px sans-serif";
-    ctx.fillText(subText, 160, 80);
+    ctx.font = "bold 18px sans-serif";
+    ctx.fillText(subText, 140, 70);
 
     const tex = new THREE.CanvasTexture(canvas);
     const mat = new THREE.SpriteMaterial({ map: tex, transparent: true });
     const sprite = new THREE.Sprite(mat);
-    sprite.scale.set(2.3, 0.8, 1);
-    sprite.position.set(0, 3.25, 0);
+    sprite.scale.set(1.85, 0.64, 1);
+    sprite.position.set(0, 3.22, 0);
     return { sprite, canvas, ctx, tex };
   }
 
   function updateNpcLabel(npc, titleText, subText, badgeColor) {
     if (!npc || !npc.labelObj) return;
     const { ctx, tex } = npc.labelObj;
-    ctx.clearRect(0, 0, 320, 110);
+    ctx.clearRect(0, 0, 280, 96);
 
     ctx.fillStyle = "rgba(15, 23, 42, 0.88)";
     ctx.beginPath();
-    ctx.roundRect(10, 10, 300, 90, 18);
+    ctx.roundRect(10, 10, 260, 76, 16);
     ctx.fill();
 
     ctx.strokeStyle = badgeColor || "#f59e0b";
@@ -173,13 +156,13 @@ window.WNS.NPC = (function () {
     ctx.stroke();
 
     ctx.fillStyle = "#ffffff";
-    ctx.font = "bold 23px sans-serif";
+    ctx.font = "bold 21px sans-serif";
     ctx.textAlign = "center";
-    ctx.fillText(titleText, 160, 48);
+    ctx.fillText(titleText, 140, 42);
 
     ctx.fillStyle = badgeColor || "#fcd34d";
-    ctx.font = "bold 19px sans-serif";
-    ctx.fillText(subText, 160, 80);
+    ctx.font = "bold 18px sans-serif";
+    ctx.fillText(subText, 140, 70);
 
     tex.needsUpdate = true;
   }
@@ -196,13 +179,14 @@ window.WNS.NPC = (function () {
 
     if (selectedNpcId === npc.id) {
       selectedNpcId = null;
+      if (window.WNS.Engine3D) window.WNS.Engine3D.updatePrepDishVisual(null, []);
     }
 
     if (window.WNS.Main && typeof window.WNS.Main.refreshHud === "function") {
       window.WNS.Main.refreshHud();
     }
+    renderPrepHud();
 
-    // Kalau ada 1 yang pergi dan jumlah sekarang < 4, panggil 1 NPC pengganti
     scheduleNextCustomerIfNeeded(2400);
   }
 
@@ -214,7 +198,6 @@ window.WNS.NPC = (function () {
       pendingSpawnTimer = null;
       if (activeNpcs.length < MAX_NPCS) {
         spawnCustomer();
-        // Lanjutkan isi bertahap sampai genap 4 pelanggan
         if (activeNpcs.length < MAX_NPCS) {
           scheduleNextCustomerIfNeeded(1800);
         }
@@ -223,7 +206,6 @@ window.WNS.NPC = (function () {
   }
 
   function spawnCustomer() {
-    // Kunci ketat: maksimal 4 NPC aktif di warung
     if (activeNpcs.length >= MAX_NPCS) return false;
     if (!window.WNS.Engine3D) return false;
 
@@ -236,15 +218,11 @@ window.WNS.NPC = (function () {
     customerCounter += 1;
     const preset = OUTFIT_PRESETS[customerCounter % OUTFIT_PRESETS.length];
     const orderItem = pickOrderItem();
-    const recipe = DISH_RECIPES[orderItem.id] || DISH_RECIPES.nasi_goreng;
+    const recipe = DISH_RECIPES[orderItem.id] || DISH_RECIPES.mie_ayam;
 
     const charObj = window.WNS.Engine3D.createRobloxCharacter(preset);
-    // Mulai jalan dari trotoar depan dengan posisi X sejajar slot antrean biar nggak saling tabrak
     const targetSlot = QUEUE_SLOTS[slotIdx];
-    const startX = targetSlot.x + (slotIdx % 2 === 0 ? -0.6 : 0.6);
-    const startZ = 9.2;
-
-    charObj.root.position.set(startX, 0, startZ);
+    charObj.root.position.set(targetSlot.x, 0, 9.2);
     npcGroup.add(charObj.root);
 
     const npcId = "NPC-" + customerCounter;
@@ -262,16 +240,14 @@ window.WNS.NPC = (function () {
       labelObj,
       queueSlot: slotIdx,
       diningSlot: null,
-      state: "walking_to_queue", // walking_to_queue | waiting | walking_to_table | eating | leaving
+      state: "walking_to_queue",
       targetX: targetSlot.x,
       targetZ: targetSlot.z,
       walkPhase: Math.random() * 5,
       eatTimer: 0,
       orderItem,
       recipe,
-      cookStep: 0,
-      cookTapCount: 0,
-      cookHoldMs: 0
+      addedIngredients: [] // Menyimpan bahan yang sudah ditekan 1 per 1
     };
 
     activeNpcs.push(npcData);
@@ -279,6 +255,7 @@ window.WNS.NPC = (function () {
     if (window.WNS.Main && typeof window.WNS.Main.refreshHud === "function") {
       window.WNS.Main.refreshHud();
     }
+    renderPrepHud();
     return true;
   }
 
@@ -309,11 +286,11 @@ window.WNS.NPC = (function () {
 
           if (npc.state === "walking_to_queue") {
             npc.state = "waiting";
-            npc.char.root.rotation.y = Math.PI; // Menghadap konter warung
+            npc.char.root.rotation.y = Math.PI;
             npc.char.setPose("idle", 0);
           } else if (npc.state === "walking_to_table") {
             npc.state = "eating";
-            npc.eatTimer = 7.5; // Makan selama 7.5 detik
+            npc.eatTimer = 7.5;
             npc.char.setPose("sit", 0);
             updateNpcLabel(npc, `Pelanggan #${npc.number}`, "Sedang Makan...", "#10b981");
           } else if (npc.state === "leaving") {
@@ -341,45 +318,29 @@ window.WNS.NPC = (function () {
 // === BATAS PART 1 ===
 
 // === AWAL PART 2 ===
-  /* ================= SISTEM MASAK MANUAL STEP-PER-STEP ================= */
-  function injectManualKitchenModal() {
-    if (document.getElementById("manual-cook-modal")) return;
+  /* ================= HUD KANTIN SIMULATOR (TEKAN BAHAN 1 PER 1 DI MEJA 3D) ================= */
+  function injectPrepHud() {
+    if (document.getElementById("kantin-prep-hud")) return;
 
-    const modal = document.createElement("div");
-    modal.id = "manual-cook-modal";
-    modal.className = "modal-overlay hidden";
-    modal.innerHTML = `
-      <div class="panel-sheet" style="max-width:450px;">
-        <div class="panel-header">
-          <div>
-            <h3>Dapur Warung • Masak Manual</h3>
-            <p id="mc-subtitle">Pilih pesanan pelanggan & selesaikan tiap tahap masak.</p>
-          </div>
-          <button id="btn-close-cook-modal" class="close-modal-btn" type="button">Tutup</button>
-        </div>
-
-        <div id="mc-customer-tabs" style="display:flex;gap:6px;overflow-x:auto;padding-bottom:6px;margin-bottom:8px;"></div>
-
-        <div id="mc-body" style="background:#1e293b;border:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:12px;"></div>
-      </div>
+    const hud = document.createElement("div");
+    hud.id = "kantin-prep-hud";
+    hud.className = "hidden";
+    hud.style.cssText = `
+      position: fixed;
+      top: 90px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 94%;
+      max-width: 470px;
+      background: rgba(11, 16, 28, 0.9);
+      border: 1.5px solid #f59e0b;
+      border-radius: 14px;
+      padding: 9px 11px;
+      z-index: 30;
+      box-shadow: 0 12px 30px rgba(0,0,0,0.65);
+      pointer-events: auto;
     `;
-
-    document.body.appendChild(modal);
-
-    const closeBtn = document.getElementById("btn-close-cook-modal");
-    if (closeBtn) {
-      closeBtn.addEventListener("click", () => {
-        stopHoldAction();
-        modal.classList.add("hidden");
-      });
-    }
-
-    modal.addEventListener("click", (e) => {
-      if (e.target === modal) {
-        stopHoldAction();
-        modal.classList.add("hidden");
-      }
-    });
+    document.body.appendChild(hud);
   }
 
   function getOrderingNpcs() {
@@ -399,15 +360,16 @@ window.WNS.NPC = (function () {
     return waiting[0];
   }
 
-  function stopHoldAction() {
-    isHoldingStep = false;
-    if (holdRafId) {
-      cancelAnimationFrame(holdRafId);
-      holdRafId = null;
+  function sync3DPlateWithNpc(npc) {
+    if (!window.WNS.Engine3D || !window.WNS.Engine3D.updatePrepDishVisual) return;
+    if (!npc) {
+      window.WNS.Engine3D.updatePrepDishVisual(null, []);
+    } else {
+      window.WNS.Engine3D.updatePrepDishVisual(npc.orderItem.id, npc.addedIngredients);
     }
   }
 
-  function completeCurrentOrder(npc) {
+  function completeAndServeDish(npc) {
     if (!npc) return;
     const sd = window.WNS.State && window.WNS.State.saveData;
     if (!sd) return;
@@ -417,17 +379,16 @@ window.WNS.NPC = (function () {
     const currentStock = inv[itemId] || 0;
 
     if (currentStock <= 0) {
-      if (window.WNS.showToast) window.WNS.showToast("Bahan habis! Beli dulu di HP Order.");
-      renderKitchenModal();
+      if (window.WNS.showToast) window.WNS.showToast("Stok bahan habis! Beli dulu di HP Order.");
       return;
     }
 
-    // Potong 1 stok bahan
+    // Kurangi 1 stok menu
     const nextStock = Math.max(0, currentStock - 1);
     if (sd.inventory) sd.inventory[itemId] = nextStock;
     if (sd.stock) sd.stock[itemId] = nextStock;
 
-    // Hitung bayaran + bonus kota & kenyamanan
+    // Hitung pendapatan
     const cityObj = window.WNS.Cities ? window.WNS.Cities.getCurrentCity() : { priceMultiplier: 1 };
     const mult = cityObj.priceMultiplier || 1;
     const comfortBonus = window.WNS.Furniture ? Math.round(window.WNS.Furniture.getComfortScore() * 120) : 0;
@@ -438,12 +399,15 @@ window.WNS.NPC = (function () {
     sd.servedCount = (sd.servedCount || 0) + 1;
     sd.level = Math.max(1, Math.floor(sd.servedCount / 5) + 1);
 
-    // Animasi karakter player mengantar makanan sebentar
+    // Kosongkan piring di tengah meja racik
+    npc.addedIngredients = [];
+    sync3DPlateWithNpc(null);
+
     if (window.WNS.Engine3D && window.WNS.Engine3D.setPlayerCarrying) {
       window.WNS.Engine3D.setPlayerCarrying(true);
       setTimeout(() => {
         if (window.WNS.Engine3D) window.WNS.Engine3D.setPlayerCarrying(false);
-      }, 1500);
+      }, 1400);
     }
 
     // Arahkan NPC duduk makan ke meja makan
@@ -455,7 +419,7 @@ window.WNS.NPC = (function () {
     updateNpcLabel(npc, `Pelanggan #${npc.number}`, "Menuju Meja...", "#34d399");
 
     if (window.WNS.showToast) {
-      window.WNS.showToast(`Pesanan #${npc.number} selesai! +Rp ${earned.toLocaleString("id-ID")}`);
+      window.WNS.showToast(`Pesanan #${npc.number} disajikan! +Rp ${earned.toLocaleString("id-ID")}`);
     }
 
     selectedNpcId = null;
@@ -467,246 +431,260 @@ window.WNS.NPC = (function () {
       window.WNS.Auth.saveMultiplayerProgress(false);
     }
 
-    // Jika masih ada pelanggan lain menunggu, lanjut ke pelanggan berikutnya; jika tidak, tutup dapur
-    if (getOrderingNpcs().length > 0) {
-      renderKitchenModal();
+    const nextCustomer = getActiveOrderNpc();
+    if (nextCustomer) {
+      sync3DPlateWithNpc(nextCustomer);
+      renderPrepHud();
     } else {
-      const modal = document.getElementById("manual-cook-modal");
-      if (modal) modal.classList.add("hidden");
+      closePrepHud();
     }
   }
 
-  function advanceStep(npc) {
-    if (!npc) return;
-    npc.cookStep += 1;
-    npc.cookTapCount = 0;
-    npc.cookHoldMs = 0;
-    renderKitchenModal();
-  }
-
-  function bindStepActionEvents(npc, stepObj) {
-    const actionBtn = document.getElementById("mc-action-btn");
-    const holdBar = document.getElementById("mc-hold-fill");
-    if (!actionBtn || !stepObj) return;
-
-    if (stepObj.type === "tap") {
-      actionBtn.addEventListener("click", () => {
-        advanceStep(npc);
-      });
-    } else if (stepObj.type === "multitap") {
-      actionBtn.addEventListener("click", () => {
-        npc.cookTapCount += 1;
-        if (npc.cookTapCount >= stepObj.target) {
-          advanceStep(npc);
-        } else {
-          renderKitchenModal();
-        }
-      });
-    } else if (stepObj.type === "hold") {
-      const startHold = (e) => {
-        if (e.cancelable) e.preventDefault();
-        if (isHoldingStep) return;
-        isHoldingStep = true;
-        holdStartTime = performance.now() - (npc.cookHoldMs || 0);
-
-        const tickHold = (now) => {
-          if (!isHoldingStep) return;
-          const elapsed = now - holdStartTime;
-          npc.cookHoldMs = elapsed;
-          const pct = Math.min(100, Math.round((elapsed / stepObj.duration) * 100));
-          if (holdBar) holdBar.style.width = `${pct}%`;
-
-          if (elapsed >= stepObj.duration) {
-            stopHoldAction();
-            advanceStep(npc);
-          } else {
-            holdRafId = requestAnimationFrame(tickHold);
-          }
-        };
-
-        holdRafId = requestAnimationFrame(tickHold);
-      };
-
-      const cancelHold = () => {
-        stopHoldAction();
-      };
-
-      actionBtn.addEventListener("pointerdown", startHold);
-      actionBtn.addEventListener("pointerup", cancelHold);
-      actionBtn.addEventListener("pointerleave", cancelHold);
-      actionBtn.addEventListener("pointercancel", cancelHold);
-    } else if (stepObj.type === "serve") {
-      actionBtn.addEventListener("click", () => {
-        completeCurrentOrder(npc);
-      });
-    }
-  }
-
-  function renderKitchenModal() {
-    injectManualKitchenModal();
-    stopHoldAction();
-
-    const tabsEl = document.getElementById("mc-customer-tabs");
-    const bodyEl = document.getElementById("mc-body");
-    if (!tabsEl || !bodyEl) return;
-
-    const waitingList = getOrderingNpcs();
-    if (waitingList.length === 0) {
-      tabsEl.innerHTML = "";
-      bodyEl.innerHTML = `
-        <div style="text-align:center;padding:18px 8px;">
-          <div style="font-size:13px;font-weight:800;color:#fcd34d;margin-bottom:6px;">Belum Ada Pelanggan Antre</div>
-          <p style="font-size:11px;color:#94a3b8;">Tunggu sebentar, pelanggan baru lagi jalan menuju warung.</p>
-        </div>
-      `;
+  // Dipanggil saat pemain menekan wadah bahan 3D di atas meja 1 per 1!
+  function onTableIngredientTapped(ingredientId) {
+    const npc = getActiveOrderNpc();
+    if (!npc) {
+      if (window.WNS.showToast) window.WNS.showToast("Belum ada pesanan pelanggan!");
       return;
     }
 
-    const activeNpc = getActiveOrderNpc();
+    // Pastikan HUD resep muncul kalau pemain langsung tap meja tanpa pencet tombol bawah
+    injectPrepHud();
+    const hud = document.getElementById("kantin-prep-hud");
+    if (hud && hud.classList.contains("hidden")) {
+      hud.classList.remove("hidden");
+    }
 
-    // Render tab pelanggan yang lagi antre (maks 4)
-    tabsEl.innerHTML = waitingList
+    const sd = window.WNS.State && window.WNS.State.saveData;
+    const inv = (sd && (sd.inventory || sd.stock)) || {};
+    if ((inv[npc.orderItem.id] || 0) <= 0) {
+      if (window.WNS.showToast) window.WNS.showToast(`Stok ${npc.recipe.dishName} habis! Order dulu di HP.`);
+      renderPrepHud();
+      return;
+    }
+
+    const seq = npc.recipe.sequence;
+    const stepIdx = npc.addedIngredients.length;
+
+    if (stepIdx >= seq.length) {
+      completeAndServeDish(npc);
+      return;
+    }
+
+    const expectedId = seq[stepIdx];
+    if (ingredientId === expectedId) {
+      npc.addedIngredients.push(ingredientId);
+      sync3DPlateWithNpc(npc);
+
+      const label = INGREDIENT_NAMES[ingredientId] || ingredientId;
+      if (npc.addedIngredients.length >= seq.length) {
+        if (window.WNS.showToast) {
+          window.WNS.showToast(`${label} masuk! Pesanan siap disajikan!`);
+        }
+      } else {
+        const nextLabel = INGREDIENT_NAMES[seq[npc.addedIngredients.length]];
+        if (window.WNS.showToast) {
+          window.WNS.showToast(`+ ${label}! Lanjut ambil ${nextLabel}.`);
+        }
+      }
+      renderPrepHud();
+    } else {
+      const expectedLabel = INGREDIENT_NAMES[expectedId] || expectedId;
+      const tappedLabel = INGREDIENT_NAMES[ingredientId] || ingredientId;
+      if (window.WNS.showToast) {
+        window.WNS.showToast(`Salah bahan (${tappedLabel})! Tekan ${expectedLabel} di meja.`);
+      }
+    }
+  }
+
+  function onPrepDishTapped() {
+    const npc = getActiveOrderNpc();
+    if (!npc) return;
+    if (npc.addedIngredients.length >= npc.recipe.sequence.length) {
+      completeAndServeDish(npc);
+    } else {
+      const nextId = npc.recipe.sequence[npc.addedIngredients.length];
+      if (window.WNS.showToast) {
+        window.WNS.showToast(`Belum jadi! Ambil ${INGREDIENT_NAMES[nextId]} dulu.`);
+      }
+    }
+  }
+
+  function closePrepHud() {
+    const hud = document.getElementById("kantin-prep-hud");
+    if (hud) hud.classList.add("hidden");
+    if (window.WNS.Engine3D && window.WNS.Engine3D.setPrepCameraMode) {
+      window.WNS.Engine3D.setPrepCameraMode(false);
+    }
+  }
+
+  function renderPrepHud() {
+    injectPrepHud();
+    const hud = document.getElementById("kantin-prep-hud");
+    if (!hud || hud.classList.contains("hidden")) return;
+
+    const waitingList = getOrderingNpcs();
+    if (waitingList.length === 0) {
+      hud.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-size:11.5px;font-weight:800;color:#fcd34d;">Menunggu pelanggan datang...</span>
+          <button id="btn-exit-prep" class="close-modal-btn" type="button">Tutup</button>
+        </div>
+      `;
+      const exitBtn = document.getElementById("btn-exit-prep");
+      if (exitBtn) exitBtn.addEventListener("click", closePrepHud);
+      return;
+    }
+
+    const npc = getActiveOrderNpc();
+    sync3DPlateWithNpc(npc);
+
+    const sd = window.WNS.State && window.WNS.State.saveData;
+    const inv = (sd && (sd.inventory || sd.stock)) || {};
+    const stockLeft = inv[npc.orderItem.id] || 0;
+
+    // Tab pelanggan antre (maks 4)
+    const tabsHtml = waitingList
       .map((n) => {
-        const isSel = n.id === activeNpc.id;
+        const active = n.id === npc.id;
         return `
           <button
             type="button"
-            data-pick-npc="${n.id}"
+            data-select-npc="${n.id}"
             style="
-              flex:0 0 auto;
-              padding:6px 10px;
-              border-radius:9px;
-              font-size:11px;
+              padding:4px 8px;
+              border-radius:7px;
+              font-size:10px;
               font-weight:800;
               cursor:pointer;
-              border:1px solid ${isSel ? "#f59e0b" : "rgba(255,255,255,0.14)"};
-              background:${isSel ? "rgba(245,158,11,0.22)" : "#0f172a"};
-              color:${isSel ? "#fcd34d" : "#cbd5e1"};
+              border:1px solid ${active ? "#f59e0b" : "rgba(255,255,255,0.16)"};
+              background:${active ? "#f59e0b" : "#1e293b"};
+              color:${active ? "#090c14" : "#e2e8f0"};
             "
           >
-            #${n.number} • ${n.recipe.dishName.split(" ")[0]}
+            #${n.number} ${n.recipe.dishName.split(" ")[0]}
           </button>
         `;
       })
       .join("");
 
-    tabsEl.querySelectorAll("[data-pick-npc]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        selectedNpcId = btn.getAttribute("data-pick-npc");
-        renderKitchenModal();
-      });
-    });
+    const seq = npc.recipe.sequence;
+    const doneCount = npc.addedIngredients.length;
+    const isComplete = doneCount >= seq.length;
+    const nextIngredientId = !isComplete ? seq[doneCount] : null;
 
-    const sd = window.WNS.State && window.WNS.State.saveData;
-    const inv = (sd && (sd.inventory || sd.stock)) || {};
-    const stockLeft = inv[activeNpc.orderItem.id] || 0;
-    const steps = activeNpc.recipe.steps;
-    const stepIdx = Math.min(activeNpc.cookStep, steps.length - 1);
-    const currentStep = steps[stepIdx];
-
-    // Indikator step 1..4
-    const stepDotsHtml = steps
-      .map((st, idx) => {
-        const done = idx < stepIdx;
-        const cur = idx === stepIdx;
+    // Daftar urutan bahan step per step
+    const stepsHtml = seq
+      .map((ingId, idx) => {
+        const isDone = idx < doneCount;
+        const isCurrent = idx === doneCount;
+        const label = INGREDIENT_NAMES[ingId] || ingId;
         return `
-          <div style="
-            flex:1;
-            text-align:center;
-            padding:5px 4px;
-            border-radius:7px;
+          <span style="
+            padding:3px 7px;
+            border-radius:6px;
             font-size:10px;
             font-weight:800;
-            background:${done ? "#10b981" : cur ? "#f59e0b" : "#0f172a"};
-            color:${done || cur ? "#090c14" : "#64748b"};
+            background:${isDone ? "#10b981" : isCurrent ? "#f59e0b" : "#1e293b"};
+            color:${isDone || isCurrent ? "#090c14" : "#94a3b8"};
+            border:${isCurrent ? "1px solid #fff" : "none"};
           ">
-            Step ${idx + 1}
-          </div>
+            ${idx + 1}. ${label}
+          </span>
         `;
       })
       .join("");
 
+    const isFocused = window.WNS.Engine3D && window.WNS.Engine3D.isPrepCameraActive();
+
+    let actionAreaHtml = "";
     if (stockLeft <= 0) {
-      bodyEl.innerHTML = `
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-          <strong style="font-size:13px;color:#fff;">Pelanggan #${activeNpc.number}: ${activeNpc.recipe.dishName}</strong>
-          <span style="font-size:11px;font-weight:800;color:#f87171;">Stok Bahan: 0</span>
-        </div>
-        <p style="font-size:11.5px;color:#cbd5e1;margin-bottom:12px;">
-          Bahan untuk masak <strong>${activeNpc.recipe.dishName}</strong> lagi habis. Pesan dulu lewat HP Order ya!
-        </p>
-        <button id="mc-goto-phone" class="buy-btn" type="button">Buka HP Order Sekarang</button>
-      `;
-
-      const goPhoneBtn = document.getElementById("mc-goto-phone");
-      if (goPhoneBtn) {
-        goPhoneBtn.addEventListener("click", () => {
-          const modal = document.getElementById("manual-cook-modal");
-          if (modal) modal.classList.add("hidden");
-          if (window.WNS.PhoneShop) window.WNS.PhoneShop.openModal();
-        });
-      }
-      return;
-    }
-
-    let extraProgressHtml = "";
-    let btnLabel = currentStep.btn;
-
-    if (currentStep.type === "multitap") {
-      const pct = Math.round((activeNpc.cookTapCount / currentStep.target) * 100);
-      btnLabel = `${currentStep.btn} (${activeNpc.cookTapCount}/${currentStep.target})`;
-      extraProgressHtml = `
-        <div style="width:100%;height:7px;background:#0f172a;border-radius:99px;overflow:hidden;margin-bottom:10px;">
-          <div style="width:${pct}%;height:100%;background:#38bdf8;transition:width 0.12s ease;"></div>
+      actionAreaHtml = `
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:7px;">
+          <span style="font-size:11px;color:#fca5a5;font-weight:700;">Stok ${npc.recipe.dishName} habis!</span>
+          <button id="btn-prep-order-hp" class="buy-btn" style="width:auto;padding:5px 10px;" type="button">Beli di HP Order</button>
         </div>
       `;
-    } else if (currentStep.type === "hold") {
-      const pct = Math.min(100, Math.round(((activeNpc.cookHoldMs || 0) / currentStep.duration) * 100));
-      extraProgressHtml = `
-        <div style="width:100%;height:8px;background:#0f172a;border-radius:99px;overflow:hidden;margin-bottom:10px;">
-          <div id="mc-hold-fill" style="width:${pct}%;height:100%;background:linear-gradient(90deg,#f59e0b,#10b981);"></div>
+    } else if (isComplete) {
+      actionAreaHtml = `
+        <button id="btn-serve-finished" class="buy-btn" style="margin-top:7px;background:#10b981;padding:8px;font-size:12px;" type="button">
+          Pesanan Jadi! Antar ke Pelanggan #${npc.number}
+        </button>
+      `;
+    } else {
+      actionAreaHtml = `
+        <div style="margin-top:7px;font-size:11px;color:#38bdf8;font-weight:800;">
+          Tekan wadah <span style="color:#fcd34d;text-decoration:underline;">${INGREDIENT_NAMES[nextIngredientId]}</span> di meja 3D!
         </div>
       `;
     }
 
-    bodyEl.innerHTML = `
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-        <div>
-          <div style="font-size:13px;font-weight:900;color:#fff;">Pelanggan #${activeNpc.number} • ${activeNpc.recipe.dishName}</div>
-          <div style="font-size:10.5px;color:#38bdf8;">Harga: Rp ${activeNpc.orderItem.sellPrice.toLocaleString("id-ID")} | Sisa Bahan: ${stockLeft}</div>
+    hud.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:6px;">
+        <div style="display:flex;gap:4px;flex-wrap:wrap;">${tabsHtml}</div>
+        <div style="display:flex;gap:4px;">
+          <button id="btn-toggle-prep-cam" class="mini-btn" style="background:#0284c7;" type="button">
+            ${isFocused ? "Bebas Gerak" : "Fokus Meja"}
+          </button>
+          <button id="btn-exit-prep" class="close-modal-btn" type="button">Keluar</button>
         </div>
       </div>
 
-      <div style="display:flex;gap:5px;margin-bottom:10px;">
-        ${stepDotsHtml}
+      <div style="font-size:11.5px;font-weight:900;color:#fff;margin-bottom:5px;">
+        Pesanan #${npc.number}: ${npc.recipe.dishName} <span style="color:#94a3b8;font-weight:600;">(Stok: ${stockLeft})</span>
       </div>
 
-      <div style="background:#0f172a;border-radius:10px;padding:10px;margin-bottom:10px;">
-        <div style="font-size:12px;font-weight:800;color:#fcd34d;margin-bottom:3px;">${currentStep.title}</div>
-        <div style="font-size:11px;color:#94a3b8;">${currentStep.hint}</div>
+      <div style="display:flex;flex-wrap:wrap;gap:4px;">
+        ${stepsHtml}
       </div>
 
-      ${extraProgressHtml}
-
-      <button
-        id="mc-action-btn"
-        type="button"
-        class="buy-btn"
-        style="padding:11px;font-size:12.5px;background:${currentStep.type === "serve" ? "#10b981" : "#f59e0b"};"
-      >
-        ${btnLabel}
-      </button>
+      ${actionAreaHtml}
     `;
 
-    bindStepActionEvents(activeNpc, currentStep);
+    hud.querySelectorAll("[data-select-npc]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        selectedNpcId = btn.getAttribute("data-select-npc");
+        renderPrepHud();
+      });
+    });
+
+    const exitBtn = document.getElementById("btn-exit-prep");
+    if (exitBtn) exitBtn.addEventListener("click", closePrepHud);
+
+    const toggleCamBtn = document.getElementById("btn-toggle-prep-cam");
+    if (toggleCamBtn) {
+      toggleCamBtn.addEventListener("click", () => {
+        if (window.WNS.Engine3D && window.WNS.Engine3D.setPrepCameraMode) {
+          window.WNS.Engine3D.setPrepCameraMode(!isFocused);
+          renderPrepHud();
+        }
+      });
+    }
+
+    const serveBtn = document.getElementById("btn-serve-finished");
+    if (serveBtn) {
+      serveBtn.addEventListener("click", () => completeAndServeDish(npc));
+    }
+
+    const orderHpBtn = document.getElementById("btn-prep-order-hp");
+    if (orderHpBtn) {
+      orderHpBtn.addEventListener("click", () => {
+        closePrepHud();
+        if (window.WNS.PhoneShop) window.WNS.PhoneShop.openModal();
+      });
+    }
   }
 
   function serveCustomerAction() {
-    injectManualKitchenModal();
-    const modal = document.getElementById("manual-cook-modal");
-    if (!modal) return;
-    modal.classList.remove("hidden");
-    renderKitchenModal();
+    injectPrepHud();
+    const hud = document.getElementById("kantin-prep-hud");
+    if (!hud) return;
+
+    hud.classList.remove("hidden");
+    if (window.WNS.Engine3D && window.WNS.Engine3D.setPrepCameraMode) {
+      window.WNS.Engine3D.setPrepCameraMode(true);
+    }
+    renderPrepHud();
   }
 
   function getWaitingCount() {
@@ -717,13 +695,12 @@ window.WNS.NPC = (function () {
     if (initialized) return;
     initialized = true;
 
-    injectManualKitchenModal();
+    injectPrepHud();
 
     if (window.WNS.Engine3D && typeof window.WNS.Engine3D.registerTick === "function") {
       window.WNS.Engine3D.registerTick(updateNpcs);
     }
 
-    // Pastikan total awal maksimal 4 pelanggan masuk bertahap
     scheduleNextCustomerIfNeeded(1200);
   }
 
@@ -731,7 +708,9 @@ window.WNS.NPC = (function () {
     init,
     spawnCustomer,
     getWaitingCount,
-    serveCustomerAction
+    serveCustomerAction,
+    onTableIngredientTapped,
+    onPrepDishTapped
   };
 })();
 // === BATAS PART 2 ===

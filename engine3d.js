@@ -4,14 +4,15 @@ window.WNS.Engine3D = (function () {
   let scene, camera, renderer;
   let warungGroup, decorGroup, npcGroup, cityGroup;
   let playerChar = null;
-  let playerPos = new THREE.Vector3(0, 0, -1.2);
+  let playerPos = new THREE.Vector3(0, 0, -3.7);
   let playerRotY = 0;
   let playerWalkPhase = 0;
   let isPlayerCarrying = false;
 
-  // Mode Kamera & Cinematic Lobby
-  let cameraMode = "third"; // "third" (Belakang) | "first" (POV Depan)
+  // Mode Kamera, Cinematic Lobby & Fokus Meja Racik
+  let cameraMode = "third";
   let isCinematicLobby = false;
+  let isPrepCamera = false;
   let cinematicTime = 0;
 
   // Input Joystick & Keyboard
@@ -19,23 +20,35 @@ window.WNS.Engine3D = (function () {
   let joyY = 0;
   const keysPressed = {};
 
-  // Kamera Orbit / POV Look
-  let camYaw = 0.25;
+  // Kamera Orbit / POV Look (Multi-touch Safe)
+  let camYaw = 0.0;
   let camPitch = 0.35;
-  let camDist = 9.5;
+  let camDist = 9.0;
   let isDraggingCam = false;
+  let camPointerId = null;
+  let downX = 0;
+  let downY = 0;
+  let downTime = 0;
   let prevTouchX = 0;
   let prevTouchY = 0;
+
+  // Interaksi Tap Meja Bahan 3D (Kantin Simulator Style)
+  const raycaster = new THREE.Raycaster();
+  const pointerNDC = new THREE.Vector2();
+  const interactiveMeshes = [];
+  let prepDishContainer = null;
 
   const movingCars = [];
   const tickCallbacks = [];
   const clock = new THREE.Clock();
 
+  // Collider presisi: meja dimajukan ke z = -2.1 agar belakang meja lega & ada celah masuk kiri-kanan
   const colliders = [
-    { minX: -5.4, maxX: 5.4, minZ: -5.6, maxZ: -4.8 },
-    { minX: -5.4, maxX: -4.8, minZ: -5.6, maxZ: 4.2 },
-    { minX: 4.8, maxX: 5.4, minZ: -5.6, maxZ: 4.2 },
-    { minX: -4.3, maxX: 2.6, minZ: -4.4, maxZ: -2.9 },
+    { minX: -5.4, maxX: 5.4, minZ: -5.6, maxZ: -4.85 },   // Dinding belakang
+    { minX: -5.4, maxX: -4.85, minZ: -5.6, maxZ: 4.2 },   // Dinding kiri
+    { minX: 4.85, maxX: 5.4, minZ: -5.6, maxZ: 4.2 },     // Dinding kanan
+    { minX: -3.3, maxX: 2.3, minZ: -2.65, maxZ: -1.55 },  // Meja racik makanan (maju, celah masuk lebar di kiri & kanan)
+    { minX: -3.2, maxX: -1.4, minZ: -4.95, maxZ: -3.95 }, // Kompor belakang
     { minX: -24, maxX: -12, minZ: -16, maxZ: -5 },
     { minX: 12, maxX: 24, minZ: -16, maxZ: -5 },
     { minX: -26, maxX: -13, minZ: 23, maxZ: 34 },
@@ -483,6 +496,261 @@ window.WNS.Engine3D = (function () {
     movingCars.push({ mesh: car, speed, dir });
   }
 
+  /* ================= WADAH BAHAN 3D DI MEJA RACIK ================= */
+  function createTrayLabel(text) {
+    const c = document.createElement("canvas");
+    c.width = 256;
+    c.height = 64;
+    const ctx = c.getContext("2d");
+
+    ctx.fillStyle = "rgba(15, 23, 42, 0.86)";
+    ctx.beginPath();
+    ctx.roundRect(12, 8, 232, 48, 12);
+    ctx.fill();
+
+    ctx.strokeStyle = "#f59e0b";
+    ctx.lineWidth = 3;
+    ctx.stroke();
+
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 24px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText(text, 128, 40);
+
+    const tex = new THREE.CanvasTexture(c);
+    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true }));
+    sprite.scale.set(0.68, 0.18, 1);
+    sprite.position.set(0, 0.24, 0);
+    return sprite;
+  }
+
+  function buildIngredientStation(id, label, x, z, fillColor, shapeType) {
+    const group = new THREE.Group();
+    group.position.set(x, 1.18, z);
+
+    // Wadah baskom stainless
+    const pan = new THREE.Mesh(
+      new THREE.BoxGeometry(0.56, 0.12, 0.42),
+      new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.65, roughness: 0.3 })
+    );
+    pan.position.y = 0.06;
+    group.add(pan);
+
+    const mat = new THREE.MeshStandardMaterial({ color: fillColor, roughness: 0.55 });
+
+    if (shapeType === "bowls") {
+      // Tumpukan mangkok & piring
+      for (let i = 0; i < 3; i++) {
+        const bowl = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.12, 0.07, 14), mat);
+        bowl.position.set(-0.08, 0.12 + i * 0.04, 0);
+        group.add(bowl);
+      }
+      const cup = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.08, 0.06, 0.16, 12),
+        new THREE.MeshStandardMaterial({ color: 0xbae6fd, transparent: true, opacity: 0.7 })
+      );
+      cup.position.set(0.15, 0.16, 0);
+      group.add(cup);
+    } else if (shapeType === "noodles") {
+      const mound = new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.5), mat);
+      mound.scale.set(1.15, 0.55, 0.85);
+      mound.position.y = 0.11;
+      group.add(mound);
+    } else if (shapeType === "balls") {
+      [
+        [-0.12, 0.14, -0.07],
+        [0.02, 0.14, 0.06],
+        [0.14, 0.14, -0.05],
+        [-0.04, 0.18, -0.02],
+        [0.09, 0.18, 0.02]
+      ].forEach((p) => {
+        const ball = new THREE.Mesh(new THREE.SphereGeometry(0.065, 10, 10), mat);
+        ball.position.set(p[0], p[1], p[2]);
+        group.add(ball);
+      });
+    } else if (shapeType === "skewers") {
+      for (let i = -2; i <= 2; i++) {
+        const stick = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.035, 0.045), mat);
+        stick.position.set(0, 0.14, i * 0.065);
+        group.add(stick);
+      }
+    } else if (shapeType === "liquid") {
+      const pot = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.17, 0.16, 0.22, 14),
+        new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.7 })
+      );
+      pot.position.y = 0.14;
+      const soup = new THREE.Mesh(new THREE.CylinderGeometry(0.155, 0.155, 0.02, 14), mat);
+      soup.position.y = 0.24;
+      group.add(pot, soup);
+    } else {
+      const fill = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.07, 0.34), mat);
+      fill.position.y = 0.12;
+      group.add(fill);
+    }
+
+    // Hitbox sentuh agak tinggi supaya gampang ditekan 1 per 1 di layar HP
+    const hitBox = new THREE.Mesh(
+      new THREE.BoxGeometry(0.62, 0.45, 0.48),
+      new THREE.MeshBasicMaterial({ visible: false })
+    );
+    hitBox.position.y = 0.22;
+    hitBox.userData = { interactType: "ingredient", ingredientId: id };
+    group.add(hitBox);
+    interactiveMeshes.push(hitBox);
+
+    group.add(createTrayLabel(label));
+    warungGroup.add(group);
+  }
+
+  function updatePrepDishVisual(dishId, addedSteps) {
+    if (!prepDishContainer) return;
+    while (prepDishContainer.children.length > 0) {
+      prepDishContainer.remove(prepDishContainer.children[0]);
+    }
+
+    const steps = Array.isArray(addedSteps) ? addedSteps : [];
+    if (steps.length === 0) return;
+
+    const has = (id) => steps.includes(id);
+
+    // Step 1: Wadah (Gelas untuk minuman, Mangkok/Piring untuk makanan)
+    if (has("wadah")) {
+      if (dishId === "es_teh") {
+        const glass = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.14, 0.11, 0.28, 16),
+          new THREE.MeshStandardMaterial({ color: 0xe0f2fe, transparent: true, opacity: 0.55, roughness: 0.1 })
+        );
+        glass.position.y = 0.14;
+        prepDishContainer.add(glass);
+      } else {
+        const isGold = dishId === "rendang";
+        const plate = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.28, 0.19, 0.09, 18),
+          new THREE.MeshStandardMaterial({ color: isGold ? 0xfbbf24 : 0xf8fafc, roughness: 0.25 })
+        );
+        plate.position.y = 0.045;
+        prepDishContainer.add(plate);
+      }
+    }
+
+    // Bahan Isian Bertumpuk
+    if (has("mie")) {
+      const mie = new THREE.Mesh(
+        new THREE.SphereGeometry(0.21, 14, 10, 0, Math.PI * 2, 0, Math.PI * 0.5),
+        new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.6 })
+      );
+      mie.scale.set(1, 0.52, 1);
+      mie.position.y = 0.08;
+      prepDishContainer.add(mie);
+    }
+
+    if (has("nasi")) {
+      const riceColor = dishId === "nasi_goreng" ? 0xd97706 : 0xffffff;
+      const nasi = new THREE.Mesh(
+        new THREE.SphereGeometry(0.22, 14, 10, 0, Math.PI * 2, 0, Math.PI * 0.55),
+        new THREE.MeshStandardMaterial({ color: riceColor, roughness: 0.75 })
+      );
+      nasi.scale.set(1, 0.58, 1);
+      nasi.position.y = 0.08;
+      prepDishContainer.add(nasi);
+    }
+
+    if (has("ayam")) {
+      const ayamMat = new THREE.MeshStandardMaterial({ color: 0x92400e, roughness: 0.5 });
+      [
+        [-0.07, 0.17, -0.04],
+        [0.05, 0.17, 0.04],
+        [0.0, 0.19, -0.03],
+        [-0.04, 0.16, 0.06]
+      ].forEach((p) => {
+        const piece = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.05, 0.07), ayamMat);
+        piece.position.set(p[0], p[1], p[2]);
+        prepDishContainer.add(piece);
+      });
+    }
+
+    if (has("sayur")) {
+      const sayur = new THREE.Mesh(
+        new THREE.BoxGeometry(0.16, 0.04, 0.12),
+        new THREE.MeshStandardMaterial({ color: 0x16a34a, roughness: 0.65 })
+      );
+      sayur.position.set(0.11, 0.16, 0.06);
+      sayur.rotation.y = 0.4;
+      prepDishContainer.add(sayur);
+    }
+
+    if (has("telur")) {
+      const eggWhite = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.11, 0.12, 0.02, 14),
+        new THREE.MeshStandardMaterial({ color: 0xffffff })
+      );
+      eggWhite.position.set(-0.02, 0.2, 0);
+      const yolk = new THREE.Mesh(
+        new THREE.SphereGeometry(0.045, 10, 8),
+        new THREE.MeshStandardMaterial({ color: 0xf59e0b })
+      );
+      yolk.position.set(-0.02, 0.21, 0);
+      prepDishContainer.add(eggWhite, yolk);
+    }
+
+    if (has("bakso")) {
+      const meatColor = dishId === "rendang" ? 0x451a03 : 0x64748b;
+      const bMat = new THREE.MeshStandardMaterial({ color: meatColor, roughness: 0.45 });
+      [
+        [-0.08, 0.18, -0.06],
+        [0.07, 0.18, -0.05],
+        [0.0, 0.19, 0.07]
+      ].forEach((p) => {
+        const b = new THREE.Mesh(new THREE.SphereGeometry(0.055, 10, 10), bMat);
+        b.position.set(p[0], p[1], p[2]);
+        prepDishContainer.add(b);
+      });
+    }
+
+    if (has("sate")) {
+      const sateMat = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.5 });
+      for (let i = -2; i <= 2; i++) {
+        const skewer = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.03, 0.04), sateMat);
+        skewer.position.set(0, 0.11, i * 0.055);
+        prepDishContainer.add(skewer);
+      }
+    }
+
+    if (has("kuah")) {
+      if (dishId === "es_teh") {
+        // Es batu + sedotan
+        const iceMat = new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.8 });
+        const ice1 = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.07, 0.07), iceMat);
+        ice1.position.set(-0.03, 0.24, 0.02);
+        const straw = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.015, 0.015, 0.36, 8),
+          new THREE.MeshStandardMaterial({ color: 0xef4444 })
+        );
+        straw.position.set(0.05, 0.22, 0);
+        straw.rotation.z = -0.22;
+        prepDishContainer.add(ice1, straw);
+      } else {
+        const brothColor = dishId === "sate_ayam" ? 0x92400e : 0xd97706;
+        const broth = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.24, 0.2, 0.03, 16),
+          new THREE.MeshStandardMaterial({ color: brothColor, transparent: true, opacity: 0.85 })
+        );
+        broth.position.y = 0.11;
+        prepDishContainer.add(broth);
+      }
+    }
+
+    if (has("es_teh")) {
+      const tea = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.125, 0.1, 0.22, 16),
+        new THREE.MeshStandardMaterial({ color: 0xb45309, transparent: true, opacity: 0.88 })
+      );
+      tea.position.y = 0.12;
+      prepDishContainer.add(tea);
+    }
+  }
+
   function buildWarungStructure() {
     const floor = new THREE.Mesh(
       new THREE.BoxGeometry(10.8, 0.24, 9.8),
@@ -539,39 +807,63 @@ window.WNS.Engine3D = (function () {
     signMesh.position.set(0, 4.45, 4.65);
     warungGroup.add(signMesh);
 
-    const counter = new THREE.Mesh(
-      new THREE.BoxGeometry(6.4, 1.05, 1.2),
-      new THREE.MeshStandardMaterial({ color: 0x92400e, roughness: 0.6 })
+    // Kompor & wajan di area dapur belakang (z = -4.45)
+    const kitchenTable = new THREE.Mesh(
+      new THREE.BoxGeometry(1.8, 1.0, 0.9),
+      new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.6 })
     );
-    counter.position.set(-0.8, 0.65, -3.7);
-    warungGroup.add(counter);
-
-    const stove = new THREE.Mesh(
-      new THREE.BoxGeometry(1.4, 0.2, 0.9),
-      new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.7 })
-    );
-    stove.position.set(-2.5, 1.26, -3.7);
-
+    kitchenTable.position.set(-2.3, 0.62, -4.45);
     const wok = new THREE.Mesh(
       new THREE.CylinderGeometry(0.45, 0.25, 0.22, 16),
       new THREE.MeshStandardMaterial({ color: 0x111827, metalness: 0.8 })
     );
-    wok.position.set(-2.5, 1.44, -3.7);
+    wok.position.set(-2.3, 1.24, -4.45);
+    warungGroup.add(kitchenTable, wok);
 
-    const glassCase = new THREE.Mesh(
-      new THREE.BoxGeometry(2.2, 0.85, 0.95),
-      new THREE.MeshStandardMaterial({
-        color: 0xbae6fd,
-        transparent: true,
-        opacity: 0.45,
-        roughness: 0.1
-      })
+    // MEJA RACIK MAKANAN DIMAKAJUKAN KE z = -2.1 (celah masuk lebar di kiri & kanan!)
+    const counter = new THREE.Mesh(
+      new THREE.BoxGeometry(5.6, 1.06, 1.1),
+      new THREE.MeshStandardMaterial({ color: 0x92400e, roughness: 0.6 })
     );
-    glassCase.position.set(0.6, 1.6, -3.7);
+    counter.position.set(-0.5, 0.65, -2.1);
 
-    warungGroup.add(stove, wok, glassCase);
+    const counterTop = new THREE.Mesh(
+      new THREE.BoxGeometry(5.72, 0.08, 1.2),
+      new THREE.MeshStandardMaterial({ color: 0xfde68a, roughness: 0.4 })
+    );
+    counterTop.position.set(-0.5, 1.18, -2.1);
+    warungGroup.add(counter, counterTop);
+
+    // Tatakan Rakit Makanan di Tengah Meja
+    const prepMat = new THREE.Mesh(
+      new THREE.BoxGeometry(0.75, 0.03, 0.65),
+      new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.5 })
+    );
+    prepMat.position.set(-0.45, 1.23, -2.1);
+    prepMat.userData = { interactType: "prep_dish" };
+    interactiveMeshes.push(prepMat);
+    warungGroup.add(prepMat);
+
+    prepDishContainer = new THREE.Group();
+    prepDishContainer.position.set(-0.45, 1.24, -2.1);
+    warungGroup.add(prepDishContainer);
+
+    // Susun semua wadah bahan 3D di atas meja racik (bisa ditekan 1 per 1!)
+    buildIngredientStation("wadah", "Mangkok/Piring", -2.85, -2.1, 0xf8fafc, "bowls");
+    buildIngredientStation("mie", "Mie Kuning", -2.15, -2.36, 0xfacc15, "noodles");
+    buildIngredientStation("nasi", "Nasi Putih", -2.15, -1.84, 0xffffff, "noodles");
+    buildIngredientStation("ayam", "Ayam Suwir", -1.45, -2.36, 0x92400e, "box");
+    buildIngredientStation("sayur", "Sayur Sawi", -1.45, -1.84, 0x16a34a, "box");
+
+    buildIngredientStation("telur", "Telur & Bumbu", 0.55, -2.36, 0xf59e0b, "balls");
+    buildIngredientStation("bakso", "Bakso/Daging", 0.55, -1.84, 0x64748b, "balls");
+    buildIngredientStation("sate", "Tusuk Sate", 1.25, -2.36, 0x78350f, "skewers");
+    buildIngredientStation("kuah", "Kuah & Saus", 1.25, -1.84, 0xd97706, "liquid");
+    buildIngredientStation("es_teh", "Teh & Es", 1.9, -2.1, 0xb45309, "liquid");
   }
+// === BATAS PART 2 ===
 
+// === AWAL PART 3 ===
   function buildCityWorld() {
     const ground = new THREE.Mesh(
       new THREE.PlaneGeometry(140, 140),
@@ -618,10 +910,10 @@ window.WNS.Engine3D = (function () {
     spawnCityCar(0xf8fafc, 18.0, 7.5, -1);
   }
 
-  /* ================= COLLISION, KAMERA BELAKANG/POV & CINEMATIC ================= */
+  /* ================= COLLISION, KAMERA & RAYCAST TAP BAHAN ================= */
   function canMoveTo(nx, nz) {
     if (nx < -44 || nx > 44 || nz < -34 || nz > 36) return false;
-    const r = 0.55;
+    const r = 0.52;
     for (let i = 0; i < colliders.length; i++) {
       const b = colliders[i];
       if (nx + r > b.minX && nx - r < b.maxX && nz + r > b.minZ && nz - r < b.maxZ) {
@@ -635,7 +927,6 @@ window.WNS.Engine3D = (function () {
     cinematicTime += delta * 0.24;
     if (playerChar) playerChar.root.visible = true;
 
-    // Gerakan kamera sinematik mulus menyorot Warung, Jalan Raya, Mobil & Pepohonan
     const angle = Math.sin(cinematicTime) * 0.65;
     const radius = 14.5 + Math.cos(cinematicTime * 0.7) * 3.0;
     const camX = Math.sin(angle) * radius;
@@ -643,7 +934,6 @@ window.WNS.Engine3D = (function () {
     const camY = 5.4 + Math.sin(cinematicTime * 1.2) * 1.2;
 
     camera.position.lerp(new THREE.Vector3(camX, camY, camZ), 0.08);
-    // Geser titik pandang sedikit ke kiri agar warung & jalan raya tampil pas di sisi kanan layar
     camera.lookAt(-3.6, 1.9, 3.2);
   }
 
@@ -652,6 +942,19 @@ window.WNS.Engine3D = (function () {
 
     if (isCinematicLobby) {
       updateCinematicLobby(delta);
+      return;
+    }
+
+    // Mode Kamera Fokus Meja Racik (Kantin Simulator View)
+    if (isPrepCamera) {
+      playerChar.root.visible = true;
+      playerChar.root.position.set(-0.45, 0, -3.55);
+      playerChar.root.rotation.y = 0;
+      playerChar.setPose("idle", clock.getElapsedTime() * 2);
+
+      const prepCamPos = new THREE.Vector3(-0.45, 2.85, -3.35);
+      camera.position.lerp(prepCamPos, 0.18);
+      camera.lookAt(-0.45, 1.22, -2.05);
       return;
     }
 
@@ -695,7 +998,6 @@ window.WNS.Engine3D = (function () {
     }
 
     if (cameraMode === "first") {
-      // KAMERA POV DEPAN (FIRST-PERSON EYE LEVEL)
       playerChar.root.visible = false;
       playerChar.root.rotation.y = camYaw + Math.PI;
 
@@ -707,42 +1009,153 @@ window.WNS.Engine3D = (function () {
       const lookZ = playerPos.z - Math.cos(camYaw) * Math.cos(camPitch) * 6;
       camera.lookAt(lookX, lookY, lookZ);
     } else {
-      // KAMERA BELAKANG (THIRD-PERSON ORBIT)
       playerChar.root.visible = true;
-      const safePitch = Math.max(0.16, camPitch);
+      const safePitch = Math.max(0.14, camPitch);
       const targetX = playerPos.x + Math.sin(camYaw) * camDist * Math.cos(safePitch);
       const targetY = playerPos.y + 1.8 + Math.sin(safePitch) * camDist;
       const targetZ = playerPos.z + Math.cos(camYaw) * camDist * Math.cos(safePitch);
 
-      camera.position.lerp(new THREE.Vector3(targetX, targetY, targetZ), 0.18);
+      camera.position.lerp(new THREE.Vector3(targetX, targetY, targetZ), 0.24);
       camera.lookAt(playerPos.x, playerPos.y + 1.5, playerPos.z);
     }
   }
 
+  function handleCanvasTap(clientX, clientY) {
+    if (!camera || interactiveMeshes.length === 0) return;
+    pointerNDC.x = (clientX / window.innerWidth) * 2 - 1;
+    pointerNDC.y = -(clientY / window.innerHeight) * 2 + 1;
+
+    raycaster.setFromCamera(pointerNDC, camera);
+    const hits = raycaster.intersectObjects(interactiveMeshes, false);
+    if (hits.length > 0) {
+      const hitData = hits[0].object.userData || {};
+      if (hitData.interactType === "ingredient" && hitData.ingredientId) {
+        if (window.WNS.NPC && typeof window.WNS.NPC.onTableIngredientTapped === "function") {
+          window.WNS.NPC.onTableIngredientTapped(hitData.ingredientId);
+        }
+      } else if (hitData.interactType === "prep_dish") {
+        if (window.WNS.NPC && typeof window.WNS.NPC.onPrepDishTapped === "function") {
+          window.WNS.NPC.onPrepDishTapped();
+        }
+      }
+    }
+  }
+
+  function isUiElement(target) {
+    if (!target || !target.closest) return false;
+    return !!target.closest(
+      ".joystick-zone, .hud-top, .multiplayer-bar, .hud-dock, .modal-overlay, #kantin-prep-hud, button, input, select, a"
+    );
+  }
+
+  function isGameplayActive() {
+    if (isCinematicLobby) return false;
+    const gameScreen = document.getElementById("game-screen");
+    return !!(gameScreen && gameScreen.classList.contains("active"));
+  }
+
+  function applyLookDelta(dx, dy) {
+    if (isPrepCamera) return; // Saat fokus meracik di meja, kamera stabil biar gampang tap bahan
+    const sens = (window.WNS.State && window.WNS.State.camSensitivity) || 1.0;
+    camYaw -= dx * 0.008 * sens;
+    const minPitch = cameraMode === "first" ? -0.75 : 0.14;
+    camPitch = Math.max(minPitch, Math.min(1.1, camPitch + dy * 0.006 * sens));
+  }
+
   function setupCameraControls(canvas) {
-    canvas.addEventListener("pointerdown", (e) => {
-      if (isCinematicLobby) return;
+    window.addEventListener("pointerdown", (e) => {
+      if (!isGameplayActive() || isUiElement(e.target)) return;
+      if (camPointerId !== null) return;
+      camPointerId = e.pointerId;
       isDraggingCam = true;
+      downX = e.clientX;
+      downY = e.clientY;
+      downTime = performance.now();
       prevTouchX = e.clientX;
       prevTouchY = e.clientY;
+      if (canvas && canvas.setPointerCapture) {
+        try {
+          canvas.setPointerCapture(e.pointerId);
+        } catch (err) {}
+      }
     });
 
     window.addEventListener("pointermove", (e) => {
-      if (!isDraggingCam || isCinematicLobby) return;
-      const sens = window.WNS.State.camSensitivity || 1.0;
+      if (!isDraggingCam || e.pointerId !== camPointerId) return;
       const dx = e.clientX - prevTouchX;
       const dy = e.clientY - prevTouchY;
       prevTouchX = e.clientX;
       prevTouchY = e.clientY;
-
-      camYaw -= dx * 0.0075 * sens;
-      const minPitch = cameraMode === "first" ? -0.65 : 0.16;
-      camPitch = Math.max(minPitch, Math.min(1.05, camPitch + dy * 0.0055 * sens));
+      applyLookDelta(dx, dy);
     });
 
-    window.addEventListener("pointerup", () => {
-      isDraggingCam = false;
-    });
+    function endPointerDrag(e) {
+      if (e.pointerId === camPointerId) {
+        const moveDist = Math.hypot(e.clientX - downX, e.clientY - downY);
+        const elapsed = performance.now() - downTime;
+        if (moveDist < 14 && elapsed < 380) {
+          handleCanvasTap(e.clientX, e.clientY);
+        }
+        camPointerId = null;
+        isDraggingCam = false;
+      }
+    }
+
+    window.addEventListener("pointerup", endPointerDrag);
+    window.addEventListener("pointercancel", endPointerDrag);
+
+    let activeTouchId = null;
+    window.addEventListener(
+      "touchstart",
+      (e) => {
+        if (!isGameplayActive() || activeTouchId !== null) return;
+        for (let i = 0; i < e.changedTouches.length; i++) {
+          const t = e.changedTouches[i];
+          if (!isUiElement(t.target)) {
+            activeTouchId = t.identifier;
+            prevTouchX = t.clientX;
+            prevTouchY = t.clientY;
+            break;
+          }
+        }
+      },
+      { passive: true }
+    );
+
+    window.addEventListener(
+      "touchmove",
+      (e) => {
+        if (activeTouchId === null || !isGameplayActive()) return;
+        for (let i = 0; i < e.changedTouches.length; i++) {
+          const t = e.changedTouches[i];
+          if (t.identifier === activeTouchId) {
+            if (e.cancelable) e.preventDefault();
+            if (camPointerId === null) {
+              const dx = t.clientX - prevTouchX;
+              const dy = t.clientY - prevTouchY;
+              prevTouchX = t.clientX;
+              prevTouchY = t.clientY;
+              applyLookDelta(dx, dy);
+            }
+            break;
+          }
+        }
+      },
+      { passive: false }
+    );
+
+    function endTouchDrag(e) {
+      if (activeTouchId === null) return;
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        if (e.changedTouches[i].identifier === activeTouchId) {
+          activeTouchId = null;
+          break;
+        }
+      }
+    }
+
+    window.addEventListener("touchend", endTouchDrag, { passive: true });
+    window.addEventListener("touchcancel", endTouchDrag, { passive: true });
 
     window.addEventListener("keydown", (e) => {
       keysPressed[e.code] = true;
@@ -833,10 +1246,13 @@ window.WNS.Engine3D = (function () {
   function setCameraMode(mode) {
     cameraMode = mode === "first" ? "first" : "third";
     window.WNS.State.cameraMode = cameraMode;
-    if (cameraMode === "first") {
-      camPitch = 0.05;
-    } else {
-      camPitch = 0.35;
+    camPitch = cameraMode === "first" ? 0.05 : 0.35;
+  }
+
+  function setPrepCameraMode(active) {
+    isPrepCamera = !!active;
+    if (isPrepCamera) {
+      playerPos.set(-0.45, 0, -3.55);
     }
   }
 
@@ -870,6 +1286,9 @@ window.WNS.Engine3D = (function () {
     setCameraMode,
     getCameraMode: () => cameraMode,
     setCinematicMode: (val) => { isCinematicLobby = !!val; },
+    setPrepCameraMode,
+    isPrepCameraActive: () => isPrepCamera,
+    updatePrepDishVisual,
     createRobloxCharacter,
     registerTick: (cb) => tickCallbacks.push(cb),
     getScene: () => scene,
@@ -881,3 +1300,4 @@ window.WNS.Engine3D = (function () {
     setJoystickInput: (x, y) => { joyX = x; joyY = y; }
   };
 })();
+// === BATAS PART 3 ===
