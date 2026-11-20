@@ -41,7 +41,6 @@ body {
 }
 
 #game-screen:not(.active) .hud-top,
-#game-screen:not(.active) .multiplayer-bar,
 #game-screen:not(.active) .joystick-zone,
 #game-screen:not(.active) .hud-dock,
 #game-screen:not(.active) .modal-overlay,
@@ -183,6 +182,12 @@ input:focus {
   color: #ffffff;
 }
 
+.full-width-btn {
+  width: 100%;
+  padding: 9px 10px;
+  font-size: 11.5px;
+}
+
 .status-hint {
   margin-top: 6px;
   font-size: 11px;
@@ -320,7 +325,7 @@ input:focus {
   transition: width 0.2s ease;
 }
 
-/* ================= HUD GAMEPLAY ================= */
+/* ================= HUD GAMEPLAY BERSIH ================= */
 .hud-top {
   position: fixed;
   top: 8px;
@@ -344,6 +349,32 @@ input:focus {
   border: 1px solid rgba(148, 163, 184, 0.25);
   border-radius: 12px;
   padding: 6px 10px;
+}
+
+.hud-right-group {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pause-hud-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  border: 1.5px solid rgba(245, 158, 11, 0.55);
+  background: rgba(15, 23, 42, 0.92);
+  color: #fbbf24;
+  font-size: 17px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
+}
+
+.pause-hud-btn:active {
+  transform: scale(0.94);
 }
 
 .avatar-circle {
@@ -390,89 +421,9 @@ input:focus {
   color: #fcd34d;
 }
 
-.multiplayer-bar {
-  position: fixed;
-  top: 56px;
-  left: 8px;
-  right: 8px;
-  z-index: 20;
-  pointer-events: auto;
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  align-items: center;
-  gap: 6px;
-  background: rgba(15, 23, 42, 0.86);
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  border-radius: 11px;
-  padding: 5px 8px;
-}
-
-.room-status {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.live-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #f59e0b;
-}
-
-.solo-badge {
-  font-size: 10.5px;
-  font-weight: 800;
-  color: #38bdf8;
-}
-
-.room-info,
-.cam-actions {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.room-info input {
-  width: 96px;
-  padding: 4px 7px;
-  font-size: 11px;
-}
-
-.mic-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 5px 9px;
-  border-radius: 8px;
-  border: none;
-  font-size: 11px;
-  font-weight: 800;
-  cursor: pointer;
-}
-
-.mic-btn.off {
-  background: #334155;
-  color: #cbd5e1;
-}
-
-.mic-btn.on {
-  background: #10b981;
-  color: #052e16;
-}
-
-.mic-wave {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: currentColor;
-  display: inline-block;
-}
-
 .game-toast {
   position: fixed;
-  top: 96px;
+  top: 56px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 35;
@@ -578,7 +529,7 @@ input:focus {
   font-weight: 700;
 }
 
-/* ================= MODAL POPUP ================= */
+/* ================= MODAL POPUP & MENU PAUSE ================= */
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -594,7 +545,7 @@ input:focus {
 .modal-card {
   width: 100%;
   max-width: 440px;
-  max-height: 82vh;
+  max-height: 85vh;
   overflow-y: auto;
   background: #0f172a;
   border: 1.5px solid #f59e0b;
@@ -624,6 +575,90 @@ input:focus {
   font-size: 11px;
   font-weight: 800;
   cursor: pointer;
+}
+
+.pause-section {
+  background: rgba(30, 41, 59, 0.72);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 12px;
+  padding: 10px;
+  margin-bottom: 10px;
+}
+
+.room-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #f59e0b;
+}
+
+.solo-badge {
+  font-size: 11px;
+  font-weight: 800;
+  color: #38bdf8;
+}
+
+.room-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+
+.room-info input {
+  flex: 1;
+  width: auto;
+  padding: 7px 9px;
+  font-size: 12px;
+}
+
+.mic-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  border: none;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.mic-btn.off {
+  background: #334155;
+  color: #cbd5e1;
+}
+
+.mic-btn.on {
+  background: #10b981;
+  color: #052e16;
+}
+
+.mic-wave {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  display: inline-block;
+}
+
+.pause-action-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.pause-action-grid .mini-btn {
+  padding: 9px 10px;
+  font-size: 11.5px;
 }
 
 .courier-box,

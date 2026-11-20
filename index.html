@@ -3,33 +3,23 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Warung Nusantara Simulator 3D</title>
+  <title>Warung Nusantara Simulator 3D - RIFKI STUDIO</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <!-- LAYAR LOADING / CUTSCENE HARDWARE ADAPTIVE -->
-  <div id="cutscene-overlay" class="cutscene-overlay hidden">
-    <div class="cutscene-box">
-      <div class="studio-badge">RIFKI DEV PRESENTS</div>
-      <h2>WARUNG NUSANTARA 3D</h2>
-      <p id="cutscene-text">Menyiapkan gerobak & dapur warung...</p>
-      <div class="progress-track">
-        <div id="cutscene-bar" class="progress-fill"></div>
-      </div>
-    </div>
-  </div>
+  <!-- CANVAS DUNIA 3D -->
+  <canvas id="unity-3d-canvas"></canvas>
 
-  <!-- LAYAR LOBBY UTAMA -->
+  <!-- LAYAR LOBBY -->
   <div id="lobby-screen" class="lobby-screen active">
     <div class="lobby-card">
       <div class="studio-tag">BY RIFKI STUDIO</div>
-      <h1 class="game-title">WARUNG NUSANTARA<br /><span>SIMULATOR 3D</span></h1>
+      <h1 class="game-title">WARUNG NUSANTARA <span>SIMULATOR 3D</span></h1>
 
-      <!-- Login / Akun -->
       <div class="lobby-section">
-        <label class="sec-label">Akun Juragan (Opsional buat Cloud Save)</label>
+        <span class="sec-label">Akun Juragan (Opsional buat Cloud Save)</span>
         <div class="input-row">
-          <input type="email" id="auth-email" placeholder="Email (contoh: rifki@gmail.com)" autocomplete="off" />
+          <input type="email" id="auth-email" placeholder="Email (contoh: rifki@gmail.com)" />
           <input type="password" id="auth-password" placeholder="Password" />
         </div>
         <div class="btn-row">
@@ -40,27 +30,25 @@
         <div id="auth-status" class="status-hint">Mode Tamu siap dimainkan.</div>
       </div>
 
-      <!-- Pilih Mode Solo / Multiplayer -->
       <div class="lobby-section">
-        <label class="sec-label">Mode Bermain</label>
+        <span class="sec-label">Mode Bermain</span>
         <div class="mode-grid">
-          <button type="button" id="mode-solo-btn" class="mode-card active" data-mode="solo">
+          <button type="button" id="mode-solo-btn" class="mode-card active">
             <strong>Singleplayer</strong>
             <span>Main santai kelola warung sendiri</span>
           </button>
-          <button type="button" id="mode-multi-btn" class="mode-card" data-mode="multiplayer">
+          <button type="button" id="mode-multi-btn" class="mode-card">
             <strong>Multiplayer Mabar</strong>
             <span>Satu warung bareng teman + Mic</span>
           </button>
         </div>
         <div id="lobby-room-box" class="room-box hidden">
-          <input type="text" id="lobby-room-input" value="WARUNG-01" maxlength="16" placeholder="Kode Room (misal: WARUNG-01)" />
+          <input type="text" id="lobby-room-input" value="WARUNG-01" placeholder="Masukkan Kode Room" />
         </div>
       </div>
 
-      <!-- Pengaturan Grafik HP Kentang -->
       <div class="lobby-section">
-        <label class="sec-label">Kualitas Grafik</label>
+        <span class="sec-label">Kualitas Grafik</span>
         <div class="tier-row">
           <button type="button" class="tier-btn" data-tier="LOW">Ringan (HP Kentang)</button>
           <button type="button" class="tier-btn active" data-tier="MID">Sedang</button>
@@ -72,64 +60,54 @@
     </div>
   </div>
 
-  <!-- LAYAR GAMEPLAY 3D -->
-  <div id="game-screen" class="game-screen">
-    <canvas id="unity-3d-canvas"></canvas>
+  <!-- CUTSCENE / LOADING PEMBUKA -->
+  <div id="cutscene-overlay" class="cutscene-overlay hidden">
+    <div class="cutscene-box">
+      <div class="studio-badge">RIFKI STUDIO</div>
+      <h2>MEMBUKA WARUNG</h2>
+      <p id="cutscene-text">Menyiapkan dapur & meja racik...</p>
+      <div class="progress-track">
+        <div id="cutscene-bar" class="progress-fill"></div>
+      </div>
+    </div>
+  </div>
 
-    <!-- HUD ATAS -->
+  <!-- LAYAR GAMEPLAY HUD -->
+  <div id="game-screen" class="game-screen">
     <div class="hud-top">
       <div class="profile-pill">
-        <div id="hud-avatar" class="avatar-circle">R</div>
+        <div class="avatar-circle" id="hud-avatar">J</div>
         <div>
-          <div id="hud-player-name" class="player-name">Juragan</div>
-          <div id="hud-city-name" class="city-sub">Kota: Jakarta Selatan</div>
+          <div class="player-name" id="hud-player-name">Juragan</div>
+          <div class="city-sub" id="hud-city-name">Kota: Jakarta Selatan</div>
         </div>
       </div>
 
-      <div class="stats-pill">
-        <div class="stat-item">
-          <span>Saldo</span>
-          <strong id="hud-coins">Rp 50.000</strong>
+      <div class="hud-right-group">
+        <div class="stats-pill">
+          <div class="stat-item">
+            <span>Saldo</span>
+            <strong id="hud-coins">Rp 50.000</strong>
+          </div>
+          <div class="stat-item">
+            <span>Level</span>
+            <strong id="hud-level">1</strong>
+          </div>
+          <div class="stat-item">
+            <span>Suhu</span>
+            <strong id="hud-temp">31°C</strong>
+          </div>
+          <div class="stat-item">
+            <span>Rep</span>
+            <strong id="hud-rep">10</strong>
+          </div>
         </div>
-        <div class="stat-item">
-          <span>Level</span>
-          <strong id="hud-level">1</strong>
-        </div>
-        <div class="stat-item">
-          <span>Suhu</span>
-          <strong id="hud-temp">27°C</strong>
-        </div>
-        <div class="stat-item">
-          <span>Rep</span>
-          <strong id="hud-rep">10</strong>
-        </div>
-      </div>
-    </div>
 
-    <!-- BAR MULTIPLAYER, MIC & KAMERA -->
-    <div class="multiplayer-bar">
-      <div class="room-status">
-        <span class="live-dot"></span>
-        <span id="room-status-text" class="solo-badge">MODE SINGLEPLAYER</span>
-      </div>
-
-      <div class="room-info">
-        <input type="text" id="room-code-input" value="WARUNG-01" maxlength="16" placeholder="Kode Room" />
-        <button type="button" id="btn-join-room" class="mini-btn">Gabung</button>
-        <button type="button" id="btn-toggle-mic" class="mic-btn off">
-          <span class="mic-wave"></span> Mic OFF
-        </button>
-      </div>
-
-      <div class="cam-actions">
-        <button type="button" id="btn-toggle-cam" class="mini-btn">Kamera: POV Belakang</button>
-        <button type="button" id="btn-save-game" class="mini-btn save">Simpan</button>
-        <button type="button" id="btn-back-lobby" class="mini-btn danger">Lobby</button>
+        <button type="button" id="btn-open-pause" class="pause-hud-btn" title="Pengaturan & Pause">⚙️</button>
       </div>
     </div>
 
-    <!-- NOTIFIKASI TOAST -->
-    <div id="game-toast" class="game-toast hidden">Selamat datang di Warung Nusantara!</div>
+    <div id="game-toast" class="game-toast hidden"></div>
 
     <!-- JOYSTICK GERAK -->
     <div id="joystick-zone" class="joystick-zone">
@@ -143,30 +121,70 @@
     <div class="hud-dock">
       <button type="button" id="btn-serve-customer" class="dock-btn primary">
         <strong>Masak & Layani</strong>
-        <span id="hud-serve-sub">Stok: 10 | Antre: 0</span>
+        <span id="hud-serve-sub">Stok: 13 | Antre: 0</span>
       </button>
       <button type="button" id="btn-open-phone" class="dock-btn">
         <strong>HP Order</strong>
-        <span id="hud-courier-sub">Beli Bahan</span>
+        <span>Beli Bahan</span>
       </button>
       <button type="button" id="btn-open-furniture" class="dock-btn">
         <strong>Hias Warung</strong>
-        <span id="hud-furniture-sub">Bangku & Kipas</span>
+        <span>Bangku & Kipas</span>
       </button>
       <button type="button" id="btn-open-cities" class="dock-btn">
         <strong>Keliling Kota</strong>
-        <span id="hud-city-sub">Pindah Cabang</span>
+        <span id="hud-city-sub">Jakarta Selatan</span>
       </button>
     </div>
 
-    <!-- MODAL HP ORDER BAHAN -->
+    <!-- MODAL PAUSE & PENGATURAN -->
+    <div id="pause-modal" class="modal-overlay hidden">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3>⚙️ Menu Pause & Pengaturan</h3>
+          <button type="button" class="close-modal-btn" data-close-modal="pause-modal">Lanjut Main</button>
+        </div>
+
+        <div class="pause-section">
+          <span class="sec-label">Multiplayer Mabar & Voice Mic</span>
+          <div class="room-status">
+            <span class="live-dot"></span>
+            <span class="solo-badge" id="room-status-text">MODE SINGLEPLAYER</span>
+          </div>
+          <div class="room-info">
+            <input type="text" id="room-code-input" value="WARUNG-01" placeholder="Kode Room" />
+            <button type="button" id="btn-join-room" class="mini-btn">Gabung</button>
+            <button type="button" id="btn-toggle-mic" class="mic-btn off">
+              <span class="mic-wave"></span> Mic OFF
+            </button>
+          </div>
+        </div>
+
+        <div class="pause-section">
+          <span class="sec-label">Sudut Pandang Kamera</span>
+          <button type="button" id="btn-toggle-cam" class="mini-btn secondary full-width-btn">
+            Kamera: POV Belakang
+          </button>
+        </div>
+
+        <div class="pause-section">
+          <span class="sec-label">Data Warung & Keluar</span>
+          <div class="pause-action-grid">
+            <button type="button" id="btn-save-game" class="mini-btn save">💾 Simpan Progress</button>
+            <button type="button" id="btn-back-lobby" class="mini-btn danger">🚪 Kembali ke Lobby</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL HP ORDER -->
     <div id="phone-shop-modal" class="modal-overlay hidden">
       <div class="modal-card">
         <div class="modal-header">
-          <h3>HP Order Supplier Bahan</h3>
+          <h3>HP Juragan - Order Bahan Baku</h3>
           <button type="button" class="close-modal-btn" data-close-modal="phone-shop-modal">Tutup</button>
         </div>
-        <div id="courier-active-list" class="courier-box"></div>
+        <div id="courier-status" class="courier-box">Kurir standby siap antar bahan ke dapur.</div>
         <div id="phone-shop-list" class="modal-list"></div>
       </div>
     </div>
@@ -175,10 +193,10 @@
     <div id="furniture-modal" class="modal-overlay hidden">
       <div class="modal-card">
         <div class="modal-header">
-          <h3>Toko Perabot & Dekorasi</h3>
+          <h3>Katalog Furnitur & Pendingin</h3>
           <button type="button" class="close-modal-btn" data-close-modal="furniture-modal">Tutup</button>
         </div>
-        <div id="comfort-score-text" class="comfort-banner">Kenyamanan Warung: 10</div>
+        <div id="comfort-status" class="comfort-banner">Beli kipas atau AC biar pembeli makin betah!</div>
         <div id="furniture-list" class="modal-list"></div>
       </div>
     </div>
@@ -198,7 +216,7 @@
   <!-- THREE.JS ENGINE -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
-  <!-- FIREBASE SDK (AUTH + REALTIME DATABASE MULTIPLAYER) -->
+  <!-- FIREBASE SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
