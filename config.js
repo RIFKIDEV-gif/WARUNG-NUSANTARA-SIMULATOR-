@@ -3,9 +3,9 @@ window.WNS = window.WNS || {};
 window.WNS.Config = {
   // GANTI 7 BARIS DI BAWAH INI DENGAN KODE DARI FIREBASE PROJECT SETTINGS KAMU
   firebaseConfig: {
-    apiKey: "AIzaSyDdOWBqBdeNhKTa5taTlyh8uRJwAVg",
+    apiKey: "AIzaSyD0wgbDeNhKTaStaTIyh8uRJwAVg",
     authDomain: "warung-nusantara-simulator.firebaseapp.com",
-    databaseURL: "https://console.firebase.google.com/project/warung-nusantara-simulator/database/warung-nusantara-simulator-default-rtdb/data/~2F?hl=id",
+    databaseURL: "https://warung-nusantara-simulator-default-rtdb.asia-southeast1.firebasedatabase.app",
     projectId: "warung-nusantara-simulator",
     storageBucket: "warung-nusantara-simulator.firebasestorage.app",
     messagingSenderId: "549410353395",
