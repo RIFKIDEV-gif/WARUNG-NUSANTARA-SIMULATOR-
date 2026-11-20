@@ -1,102 +1,88 @@
 window.WNS = window.WNS || {};
 
 window.WNS.Config = {
-  STORAGE_KEY_USERS: "wns_rifkidev_users_v2",
-  STORAGE_KEY_ACTIVE: "wns_rifkidev_active_v2",
-
-  CITIES: [
-    {
-      id: "jaksel",
-      name: "Jakarta Selatan",
-      skyColor: 0x7dd3fc,
-      fogColor: 0xbae6fd,
-      groundColor: 0x3f7d3a,
-      baseTemp: 32,
-      priceMultiplier: 1.0,
-      reqLevel: 1,
-      reqRep: 0,
-      reqCoins: 0,
-      desc: "Cabang pertama di pinggir jalan raya metropolitan yang ramai."
-    },
-    {
-      id: "bandung",
-      name: "Bandung Kota",
-      skyColor: 0x93c5fd,
-      fogColor: 0xdbeafe,
-      groundColor: 0x2f6f3e,
-      baseTemp: 24,
-      priceMultiplier: 1.25,
-      reqLevel: 2,
-      reqRep: 25,
-      reqCoins: 150000,
-      desc: "Udara sejuk pegunungan, pelanggan suka nongkrong lama."
-    },
-    {
-      id: "jogja",
-      name: "Yogyakarta",
-      skyColor: 0xfde68a,
-      fogColor: 0xfef3c7,
-      groundColor: 0x4d7c3f,
-      baseTemp: 29,
-      priceMultiplier: 1.45,
-      reqLevel: 4,
-      reqRep: 50,
-      reqCoins: 350000,
-      desc: "Kota pelajar & wisata dengan pelanggan ramah dan royal."
-    },
-    {
-      id: "bali",
-      name: "Denpasar Bali",
-      skyColor: 0x38bdf8,
-      fogColor: 0xe0f2fe,
-      groundColor: 0x43853d,
-      baseTemp: 31,
-      priceMultiplier: 1.8,
-      reqLevel: 6,
-      reqRep: 90,
-      reqCoins: 750000,
-      desc: "Cabang sultan tepi pantai dengan omzet tertinggi se-Nusantara."
-    }
-  ],
+  // GANTI 7 BARIS DI BAWAH INI DENGAN KODE DARI FIREBASE PROJECT SETTINGS KAMU
+  firebaseConfig: {
+    apiKey: "AIzaSyDdOWBqBdeNhKTa5taTlyh8uRJwAVg",
+    authDomain: "warung-nusantara-simulator.firebaseapp.com",
+    databaseURL: "https://console.firebase.google.com/project/warung-nusantara-simulator/database/warung-nusantara-simulator-default-rtdb/data/~2F?hl=id",
+    projectId: "warung-nusantara-simulator",
+    storageBucket: "warung-nusantara-simulator.firebasestorage.app",
+    messagingSenderId: "549410353395",
+    appId: "1:549410353395:web:957c9c6e4ab4e340708786"
+  },
 
   SHOP_ITEMS: [
-    { id: "nasi_goreng", name: "Paket Bahan Nasi Goreng", cost: 18000, sellPrice: 32000, qty: 3, desc: "3 porsi beras, telur, bumbu spesial." },
-    { id: "mie_ayam", name: "Paket Mie Ayam Bakso", cost: 24000, sellPrice: 42000, qty: 3, desc: "3 porsi mie telur, ayam kecap, bakso." },
-    { id: "sate_ayam", name: "Paket Sate Ayam Madura", cost: 35000, sellPrice: 60000, qty: 3, desc: "3 porsi daging ayam & bumbu kacang." },
-    { id: "es_teh", name: "Paket Es Teh & Kopi", cost: 12000, sellPrice: 22000, qty: 4, desc: "4 gelas minuman segar pelepas dahaga." },
-    { id: "rendang", name: "Paket Rendang Daging VIP", cost: 55000, sellPrice: 95000, qty: 3, desc: "3 porsi menu sultan favorit pelanggan VIP." }
+    { id: "mie_ayam", name: "Paket Mie Ayam Bakso", cost: 24000, sellPrice: 42000, qty: 3, deliverySec: 65 },
+    { id: "nasi_goreng", name: "Paket Bahan Nasi Goreng", cost: 18000, sellPrice: 32000, qty: 3, deliverySec: 60 },
+    { id: "sate_ayam", name: "Paket Sate Ayam Madura", cost: 22000, sellPrice: 38000, qty: 3, deliverySec: 75 },
+    { id: "es_teh", name: "Paket Es Teh & Kopi", cost: 12000, sellPrice: 22000, qty: 4, deliverySec: 60 },
+    { id: "rendang", name: "Paket Rendang Daging VIP", cost: 35000, sellPrice: 60000, qty: 2, deliverySec: 90 }
   ],
 
-  DECOR_ITEMS: [
-    { id: "chair_wood", name: "Set Meja & Kursi Kayu", cost: 45000, comfort: 12, cooling: 0, seats: 2, desc: "Tambah 2 kursi kayu + meja taplak batik." },
-    { id: "chair_sofa", name: "Set Meja & Sofa Empuk", cost: 95000, comfort: 24, cooling: 0, seats: 2, desc: "Tambah 2 kursi sofa empuk favorit pelanggan." },
-    { id: "fan_stand", name: "Kipas Angin Berdiri 3D", cost: 60000, comfort: 14, cooling: 3, seats: 0, desc: "Kipas 4 baling-baling berputar kencang." },
-    { id: "ac_wall", name: "AC Dinding Inverter", cost: 160000, comfort: 30, cooling: 6, seats: 0, desc: "Bikin suhu warung adem & tip pelanggan naik." },
-    { id: "plant_pot", name: "Tanaman Hias & Neon", cost: 35000, comfort: 10, cooling: 1, seats: 0, desc: "Mempercantik tampilan depan warung." }
+  FURNITURE_ITEMS: [
+    { id: "fan", name: "Kipas Angin Berdiri", price: 15000, comfort: 8, tempReduce: 3, desc: "Bikin warung adem & pembeli betah" },
+    { id: "table_set", name: "Set Meja & Bangku Kayu", price: 25000, comfort: 12, tempReduce: 0, desc: "Nambah kenyamanan makan di tempat" },
+    { id: "neon_sign", name: "Lampu Neon Warung", price: 20000, comfort: 10, tempReduce: 0, desc: "Tampilan warung makin mencolok" },
+    { id: "ac_wall", name: "AC Dinding Hemat Daya", price: 55000, comfort: 22, tempReduce: 6, desc: "Suhu ruangan sejuk maksimal" }
+  ],
+
+  CITIES: [
+    { id: "jakarta", name: "Jakarta Selatan", unlockLevel: 1, priceMultiplier: 1.0, skyColor: 0x7dd3fc, fogColor: 0xbae6fd, baseTemp: 31 },
+    { id: "bandung", name: "Bandung Kota", unlockLevel: 2, priceMultiplier: 1.15, skyColor: 0x93c5fd, fogColor: 0xdbeafe, baseTemp: 23 },
+    { id: "yogyakarta", name: "Yogyakarta", unlockLevel: 3, priceMultiplier: 1.25, skyColor: 0xfde68a, fogColor: 0xfef3c7, baseTemp: 28 },
+    { id: "surabaya", name: "Surabaya Pusat", unlockLevel: 4, priceMultiplier: 1.4, skyColor: 0x38bdf8, fogColor: 0xe0f2fe, baseTemp: 33 },
+    { id: "bali", name: "Denpasar Bali", unlockLevel: 5, priceMultiplier: 1.65, skyColor: 0x60a5fa, fogColor: 0xcffafe, baseTemp: 29 }
   ]
 };
 
 window.WNS.State = {
   currentUser: null,
-  saveData: null,
+  gameMode: "solo",
+  roomCode: "WARUNG-01",
   deviceTier: "MID",
-  gameMode: "singleplayer", // "singleplayer" | "multiplayer"
-  cameraMode: "third",      // "third" | "first"
+  cameraMode: "third",
   camSensitivity: 1.0,
-  currentRoom: "NUSANTARA-01",
-  micEnabled: false
+  saveData: {
+    coins: 50000,
+    level: 1,
+    rep: 10,
+    servedCount: 0,
+    cityId: "jakarta",
+    inventory: {
+      mie_ayam: 3,
+      nasi_goreng: 3,
+      sate_ayam: 2,
+      es_teh: 4,
+      rendang: 1
+    },
+    stock: {
+      mie_ayam: 3,
+      nasi_goreng: 3,
+      sate_ayam: 2,
+      es_teh: 4,
+      rendang: 1
+    },
+    furniture: ["table_set"]
+  }
 };
 
-(function () {
-  let toastTimer = null;
-  window.WNS.showToast = function (message) {
-    const el = document.getElementById("game-toast");
-    if (!el) return;
-    el.textContent = message;
-    el.style.opacity = "1";
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => {
-      el.style.opacity = "0.75";
-    }, 3200);
-  };
+// Otomatis aktifkan Firebase jika firebaseConfig sudah diisi
+(function initFirebaseApp() {
+  try {
+    const cfg = window.WNS.Config.firebaseConfig;
+    if (
+      typeof firebase !== "undefined" &&
+      cfg &&
+      cfg.apiKey &&
+      !cfg.apiKey.includes("TEMPEL_") &&
+      !cfg.apiKey.includes("YOUR_")
+    ) {
+      if (!firebase.apps || firebase.apps.length === 0) {
+        firebase.initializeApp(cfg);
+      }
+    }
+  } catch (err) {
+    console.warn("Firebase init gagal:", err);
+  }
 })();
