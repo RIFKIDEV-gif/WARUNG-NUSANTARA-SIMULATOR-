@@ -607,51 +607,31 @@ window.WNS.Main = (function () {
   };
 })();
 
-// === FIX TOTAL SENTUHAN TOMBOL BAWAH, HP, MASAK & ANTARKAN ===
+// === FIX SENTUHAN HP ORDER, MASAK & ANTARKAN ===
 (function () {
-  if (window.__wnsTouchFixApplied) return;
-  window.__wnsTouchFixApplied = true;
+  if (window.__wnsCleanTouchFix) return;
+  window.__wnsCleanTouchFix = true;
 
   const st = document.createElement("style");
   st.textContent = `
-    /* Batasi area joystick biar nggak nutupin tombol bawah */
     #joystick-zone, #joystick-container, .joystick-zone, .joystick-area {
-      bottom: 72px !important;
+      bottom: 76px !important;
       left: 12px !important;
-      width: 130px !important;
-      height: 130px !important;
+      width: 128px !important;
+      height: 128px !important;
       z-index: 15 !important;
-    }
-    /* Pastikan semua tombol bawah & modal bisa disentuh */
-    #game-screen.active button,
-    #wns-mini-dock,
-    #wns-mini-dock button {
-      pointer-events: auto !important;
-      touch-action: manipulation !important;
     }
     .wns-bottom-row-fixed {
       position: fixed !important;
-      bottom: 8px !important;
-      left: 8px !important;
-      z-index: 35 !important;
+      bottom: 10px !important;
+      left: 10px !important;
+      z-index: 9985 !important;
       pointer-events: auto !important;
     }
-    body.wns-bottom-folded .wns-bottom-row-fixed {
-      display: none !important;
-    }
-    #phone-modal:not(.hidden),
-    #cooking-modal:not(.hidden),
-    .modal:not(.hidden) {
-      display: flex !important;
-      position: fixed !important;
-      inset: 0 !important;
-      z-index: 999 !important;
+    .wns-bottom-row-fixed button,
+    #game-screen.active button {
       pointer-events: auto !important;
-    }
-    #phone-modal:not(.hidden) *,
-    #cooking-modal:not(.hidden) *,
-    .modal:not(.hidden) * {
-      pointer-events: auto !important;
+      touch-action: manipulation !important;
     }
   `;
   document.head.appendChild(st);
@@ -664,110 +644,129 @@ window.WNS.Main = (function () {
       const t = (b.textContent || "").toLowerCase();
       if (t.includes("masak") || t.includes("hp order")) {
         const row = b.parentElement;
-        if (row && row !== gs) {
-          row.classList.add("wns-bottom-row-fixed");
-        }
+        if (row && row !== gs) row.classList.add("wns-bottom-row-fixed");
       }
     });
   }
 
-  function unlockDisabledServeButtons() {
-    document.querySelectorAll("button").forEach((b) => {
-      const t = (b.textContent || "").trim().toLowerCase();
-      if (t === "antarkan" || t === "antar pesanan" || t === "sajikan" || t === "kirim") {
-        if (b.disabled) b.disabled = false;
-      }
-    });
-  }
-
-  function findTappedButton(e) {
-    const direct = e.target && e.target.closest ? e.target.closest("button") : null;
-    if (direct) return direct;
-
-    const pt = (e.changedTouches && e.changedTouches[0]) || e;
-    if (typeof pt.clientX === "number" && typeof pt.clientY === "number" && document.elementsFromPoint) {
-      const stack = document.elementsFromPoint(pt.clientX, pt.clientY);
-      for (const el of stack) {
-        if (el.tagName === "BUTTON") return el;
-        const pBtn = el.closest && el.closest("button");
-        if (pBtn) return pBtn;
+  function forceOpenCookingPanel() {
+    const directIds = ["cooking-modal", "kitchen-modal", "cook-modal", "serve-modal"];
+    for (const id of directIds) {
+      const el = document.getElementById(id);
+      if (el) {
+        el.classList.remove("hidden");
+        el.style.cssText =
+          "display:flex !important; position:fixed !important; inset:0 !important; z-index:99990 !important; pointer-events:auto !important;";
+        return true;
       }
     }
-    return null;
+    const allModals = document.querySelectorAll(".modal, [id*='cook'], [id*='kitchen'], [id*='serve']");
+    for (const el of allModals) {
+      if (el.id === "phone-modal") continue;
+      const txt = (el.textContent || "").toLowerCase();
+      if (txt.includes("antarkan") || txt.includes("resep") || txt.includes("masak")) {
+        el.classList.remove("hidden");
+        el.style.cssText =
+          "display:flex !important; position:fixed !important; inset:0 !important; z-index:99990 !important; pointer-events:auto !important;";
+        return true;
+      }
+    }
+    return false;
   }
 
-  let lastActionTime = 0;
-  function handleUniversalTap(e) {
-    const btn = findTappedButton(e);
-    if (!btn) return;
+  function runFallbackServe() {
+    const stObj = window.WNS && window.WNS.State ? window.WNS.State : {};
+    const sd = stObj.saveData || {};
+    let served = false;
 
-    const now = Date.now();
-    if (now - lastActionTime < 280) return;
+    const buckets = [stObj.cookedDishes, stObj.readyDishes, stObj.cooked, sd.cookedDishes, sd.cooked];
+    for (const b of buckets) {
+      if (!b || typeof b !== "object") continue;
+      if (Array.isArray(b) && b.length > 0) {
+        b.shift();
+        served = true;
+        break;
+      } else {
+        const key = Object.keys(b).find((k) => Number(b[k] || 0) > 0);
+        if (key) {
+          b[key] = Math.max(0, Number(b[key]) - 1);
+          served = true;
+          break;
+        }
+      }
+    }
+
+    if (!served && Number(sd.cookedStock || stObj.cookedStock || 0) > 0) {
+      if (Number(sd.cookedStock || 0) > 0) sd.cookedStock--;
+      if (Number(stObj.cookedStock || 0) > 0) stObj.cookedStock--;
+      served = true;
+    }
+
+    if (served) {
+      sd.coins = Number(sd.coins || 0) + 15000;
+      sd.rep = Number(sd.rep || 10) + 2;
+      const M = (window.WNS && window.WNS.Main) || {};
+      if (typeof M.refreshHud === "function") M.refreshHud();
+      if (typeof M.renderCooking === "function") M.renderCooking();
+      if (typeof M.saveLocalProgress === "function") M.saveLocalProgress(false);
+      if (window.WNS && window.WNS.showToast) {
+        window.WNS.showToast("🍽️ Pesanan berhasil diantarkan! +Rp 15.000");
+      }
+    }
+  }
+
+  document.addEventListener("click", (e) => {
+    const btn = e.target && e.target.closest ? e.target.closest("button") : null;
+    if (!btn) return;
+    if (btn.closest("#phone-modal, #wns-mini-dock")) return;
 
     const txt = (btn.textContent || "").trim().toLowerCase();
     const id = (btn.id || "").toLowerCase();
 
-    // 1. Tombol Lipat / Buka Bar
-    if (id === "wns-fold-bottom-btn" || txt.includes("lipat bar") || txt.includes("buka bar")) {
-      lastActionTime = now;
-      tagBottomBarRow();
-      const folded = document.body.classList.toggle("wns-bottom-folded");
-      const foldEl = document.getElementById("wns-fold-bottom-btn");
-      if (foldEl) foldEl.textContent = folded ? "🔼 Buka Bar" : "🔽 Lipat Bar";
-      return;
-    }
-
-    // 2. Tombol HP Order / HP
-    if (
-      id === "wns-quick-phone-btn" ||
-      id.includes("phone") ||
-      txt.includes("hp order") ||
-      txt === "📱 hp" ||
-      txt === "hp"
-    ) {
-      lastActionTime = now;
+    if (id.includes("phone") || txt.includes("hp order")) {
+      e.preventDefault();
+      e.stopPropagation();
       if (window.WNS && window.WNS.PhoneShop && window.WNS.PhoneShop.openModal) {
         window.WNS.PhoneShop.openModal();
-      } else {
-        const pm = document.getElementById("phone-modal");
-        if (pm) pm.classList.remove("hidden");
       }
       return;
     }
 
-    // 3. Tombol Masak & Layani
     if (txt.includes("masak") && txt.includes("layani")) {
-      lastActionTime = now;
-      const cm =
-        document.getElementById("cooking-modal") ||
-        document.getElementById("kitchen-modal") ||
-        document.getElementById("cook-modal");
-      if (cm) {
-        cm.classList.remove("hidden");
+      setTimeout(() => {
+        forceOpenCookingPanel();
         if (window.WNS && window.WNS.Main && window.WNS.Main.renderCooking) {
           window.WNS.Main.renderCooking();
         }
-      }
+      }, 30);
       return;
     }
 
-    // 4. Tombol Antarkan masakan matang di dapur
-    if (!btn.closest("#phone-modal") && (txt === "antarkan" || txt === "antar pesanan" || txt === "sajikan")) {
-      lastActionTime = now;
+    if (txt === "antarkan" || txt === "antar pesanan" || txt === "sajikan") {
       btn.disabled = false;
-      const M = (window.WNS && window.WNS.Main) || {};
-      if (typeof M.serveDish === "function") M.serveDish();
-      else if (typeof M.serveFood === "function") M.serveFood();
-      else if (typeof M.deliverCooked === "function") M.deliverCooked();
-      else if (typeof M.serve === "function") M.serve();
+      const coinsBefore = Number((window.WNS && window.WNS.State && window.WNS.State.saveData && window.WNS.State.saveData.coins) || 0);
+      setTimeout(() => {
+        const coinsAfter = Number((window.WNS && window.WNS.State && window.WNS.State.saveData && window.WNS.State.saveData.coins) || 0);
+        if (coinsAfter === coinsBefore) {
+          const M = (window.WNS && window.WNS.Main) || {};
+          if (typeof M.serveDish === "function") M.serveDish();
+          else if (typeof M.serveFood === "function") M.serveFood();
+          else if (typeof M.deliverCooked === "function") M.deliverCooked();
+          else if (typeof M.serve === "function") M.serve();
+          const coinsFinal = Number((window.WNS && window.WNS.State && window.WNS.State.saveData && window.WNS.State.saveData.coins) || 0);
+          if (coinsFinal === coinsBefore) runFallbackServe();
+        }
+      }, 60);
     }
-  }
-
-  document.addEventListener("pointerup", handleUniversalTap, true);
-  document.addEventListener("click", handleUniversalTap, true);
+  });
 
   setInterval(() => {
     tagBottomBarRow();
-    unlockDisabledServeButtons();
+    document.querySelectorAll("button").forEach((b) => {
+      const t = (b.textContent || "").trim().toLowerCase();
+      if ((t === "antarkan" || t === "antar pesanan" || t === "sajikan") && b.disabled) {
+        b.disabled = false;
+      }
+    });
   }, 700);
 })();

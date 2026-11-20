@@ -52,7 +52,7 @@ window.WNS.PhoneShop = (function () {
       }
       #wns-decor-hotbar {
         display: none !important;
-        bottom: 56px !important;
+        bottom: 58px !important;
         top: auto !important;
         left: 50% !important;
         padding: 4px 6px !important;
@@ -63,67 +63,76 @@ window.WNS.PhoneShop = (function () {
       body.wns-show-decor-bar #game-screen.active #wns-decor-hotbar {
         display: flex !important;
       }
-      .wns-compact-bottom {
-        padding: 5px 8px !important;
-        max-height: 118px !important;
-        overflow-y: auto !important;
-      }
-      body.wns-bottom-folded .wns-compact-bottom {
+      body.wns-bottom-folded .wns-bottom-row-fixed {
         display: none !important;
       }
       #wns-mini-dock {
-        position: fixed;
-        bottom: 8px;
-        right: 10px;
-        z-index: 30;
-        pointer-events: auto;
-        display: flex;
-        gap: 6px;
+        position: fixed !important;
+        bottom: 10px !important;
+        right: 10px !important;
+        z-index: 9990 !important;
+        pointer-events: auto !important;
+        display: flex !important;
+        gap: 6px !important;
       }
       #game-screen:not(.active) #wns-mini-dock {
         display: none !important;
       }
       .wns-dock-pill {
-        background: rgba(15, 23, 42, 0.92);
-        border: 1.5px solid #f59e0b;
-        color: #fbbf24;
-        border-radius: 999px;
-        padding: 5px 10px;
-        font-size: 10.5px;
-        font-weight: 800;
-        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.65);
-        cursor: pointer;
+        background: rgba(15, 23, 42, 0.95) !important;
+        border: 1.5px solid #f59e0b !important;
+        color: #fbbf24 !important;
+        border-radius: 999px !important;
+        padding: 6px 11px !important;
+        font-size: 11px !important;
+        font-weight: 800 !important;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.7) !important;
+        cursor: pointer !important;
+        touch-action: manipulation !important;
       }
       #wns-quick-phone-btn {
-        display: none;
-        border-color: #38bdf8;
-        color: #bae6fd;
+        display: none !important;
+        border-color: #38bdf8 !important;
+        color: #bae6fd !important;
       }
       body.wns-bottom-folded #wns-quick-phone-btn {
-        display: inline-block;
+        display: inline-block !important;
       }
       .wns-phone-shell {
+        width: 100%;
+        max-width: 390px;
         background: #090d16;
         border: 2px solid #334155;
-        border-radius: 18px;
-        padding: 8px;
-        box-shadow: inset 0 0 18px rgba(2, 132, 199, 0.2);
+        border-radius: 20px;
+        padding: 10px;
+        box-shadow: 0 18px 45px rgba(0, 0, 0, 0.85), inset 0 0 18px rgba(2, 132, 199, 0.22);
+        color: #f8fafc;
       }
       .wns-phone-status {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        font-size: 10px;
+        font-size: 10.5px;
         font-weight: 800;
         color: #94a3b8;
-        padding: 2px 6px 6px;
+        padding: 2px 4px 7px;
         border-bottom: 1px solid #1e293b;
-        margin-bottom: 7px;
+        margin-bottom: 8px;
+      }
+      .wns-close-phone {
+        background: #ef4444;
+        color: #fff;
+        border: none;
+        border-radius: 999px;
+        padding: 3px 9px;
+        font-size: 10px;
+        font-weight: 900;
+        cursor: pointer;
       }
       .wns-phone-apps {
         display: grid;
         grid-template-columns: repeat(4, 1fr);
-        gap: 5px;
+        gap: 6px;
         margin-bottom: 8px;
       }
       .wns-app-btn {
@@ -133,22 +142,19 @@ window.WNS.PhoneShop = (function () {
         justify-content: center;
         gap: 2px;
         padding: 6px 3px;
-        border-radius: 11px;
+        border-radius: 12px;
         border: 1.5px solid #1e293b;
         background: #0f172a;
         color: #cbd5e1;
-        font-size: 9.5px;
+        font-size: 10px;
         font-weight: 800;
         cursor: pointer;
         position: relative;
       }
-      .wns-app-btn .app-ico {
-        font-size: 16px;
-        line-height: 1.1;
-      }
+      .wns-app-btn .app-ico { font-size: 16px; line-height: 1.1; }
       .wns-app-btn.active {
         border-color: #f59e0b;
-        background: rgba(245, 158, 11, 0.2);
+        background: rgba(245, 158, 11, 0.22);
         color: #fbbf24;
       }
       .wns-app-badge {
@@ -163,25 +169,50 @@ window.WNS.PhoneShop = (function () {
         border-radius: 999px;
       }
       .wns-phone-screen {
-        max-height: 56vh;
+        max-height: 55vh;
         overflow-y: auto;
         padding-right: 2px;
       }
       .wns-bar-toggle {
         width: 100%;
         margin-bottom: 7px;
-        padding: 6px 8px;
+        padding: 7px 8px;
         border-radius: 9px;
         border: 1px solid #38bdf8;
-        background: rgba(2, 132, 199, 0.16);
+        background: rgba(2, 132, 199, 0.18);
         color: #bae6fd;
         font-size: 10.5px;
         font-weight: 800;
         cursor: pointer;
-        text-align: center;
       }
     `;
     document.head.appendChild(style);
+  }
+
+  function ensurePhoneModal() {
+    injectPhoneStyles();
+    let modal = document.getElementById("phone-modal");
+    if (!modal) {
+      modal = document.createElement("div");
+      modal.id = "phone-modal";
+      modal.className = "modal hidden";
+      document.body.appendChild(modal);
+    }
+    return modal;
+  }
+
+  function showPhoneModal() {
+    const modal = ensurePhoneModal();
+    modal.classList.remove("hidden");
+    modal.style.cssText =
+      "display:flex !important; position:fixed !important; inset:0 !important; z-index:99999 !important; background:rgba(2,6,23,0.8) !important; align-items:center !important; justify-content:center !important; padding:10px !important; pointer-events:auto !important;";
+  }
+
+  function hidePhoneModal() {
+    const modal = document.getElementById("phone-modal");
+    if (!modal) return;
+    modal.classList.add("hidden");
+    modal.style.display = "none";
   }
 
   function cleanBottomHudClutter() {
@@ -200,12 +231,7 @@ window.WNS.PhoneShop = (function () {
       if (btn.closest(".modal, #phone-modal, #wns-gizmo-panel, #wns-decor-hotbar, #wns-mini-dock")) return;
       const txt = (btn.textContent || "").trim().toLowerCase();
       const id = (btn.id || "").toLowerCase();
-      if (
-        txt.includes("hias") ||
-        txt.includes("kota") ||
-        id.includes("furniture") ||
-        id.includes("cities")
-      ) {
+      if (txt.includes("hias") || txt.includes("kota") || id.includes("furniture") || id.includes("cities")) {
         btn.classList.add("wns-hide-bottom-btn");
       }
     });
@@ -276,11 +302,8 @@ window.WNS.PhoneShop = (function () {
     const bucket = getCookedBucket();
     const key = findCookedKey(dishId, dishName);
     if (key === null) return false;
-    if (Array.isArray(bucket)) {
-      bucket.splice(key, 1);
-    } else {
-      bucket[key] = Math.max(0, Number(bucket[key] || 0) - 1);
-    }
+    if (Array.isArray(bucket)) bucket.splice(key, 1);
+    else bucket[key] = Math.max(0, Number(bucket[key] || 0) - 1);
     return true;
   }
 
@@ -303,21 +326,17 @@ window.WNS.PhoneShop = (function () {
   function deliverOrder(orderId) {
     const sd = getSaveData();
     ensureOnlineOrders();
-
     const idx = orderId ? sd.onlineOrders.findIndex((o) => o.orderId === orderId) : 0;
     const order = idx !== -1 ? sd.onlineOrders[idx] : sd.onlineOrders[0];
     if (!order) return false;
 
     if (getCookedCount(order.dishId, order.dishName) <= 0) {
-      if (window.WNS.showToast) {
-        window.WNS.showToast(`Masak dulu ${order.dishName} di dapur sebelum dikirim!`);
-      }
+      if (window.WNS.showToast) window.WNS.showToast(`Masak dulu ${order.dishName} di dapur sebelum dikirim!`);
       return false;
     }
 
     consumeCookedDish(order.dishId, order.dishName);
     sd.onlineOrders.splice(idx !== -1 ? idx : 0, 1);
-
     const reward = Number(order.reward || 15000);
     sd.coins = Number(sd.coins || 0) + reward;
     sd.rep = Number(sd.rep || 10) + 3;
@@ -328,10 +347,7 @@ window.WNS.PhoneShop = (function () {
       if (window.WNS.Main.renderCooking) window.WNS.Main.renderCooking();
       if (window.WNS.Main.saveLocalProgress) window.WNS.Main.saveLocalProgress(false);
     }
-
-    if (window.WNS.showToast) {
-      window.WNS.showToast(`🛵 Terkirim ke ${order.customer}! +Rp ${reward.toLocaleString("id-ID")}`);
-    }
+    if (window.WNS.showToast) window.WNS.showToast(`🛵 Terkirim ke ${order.customer}! +Rp ${reward.toLocaleString("id-ID")}`);
     render();
     return true;
   }
@@ -340,12 +356,10 @@ window.WNS.PhoneShop = (function () {
     const sd = getSaveData();
     const item = getIngredientsCatalog().find((x) => x.id === ingId);
     if (!item) return;
-
     if (Number(sd.coins || 0) < item.price) {
       if (window.WNS.showToast) window.WNS.showToast("Saldo nggak cukup buat beli bahan ini!");
       return;
     }
-
     sd.coins = Number(sd.coins || 0) - item.price;
     const sec = Number(item.deliverySec || 15);
     sd.activeDeliveries.push({
@@ -355,65 +369,43 @@ window.WNS.PhoneShop = (function () {
       stockAdd: Number(item.stockAdd || 10),
       endTime: Date.now() + sec * 1000
     });
-
     if (window.WNS.Main && window.WNS.Main.refreshHud) window.WNS.Main.refreshHud();
-    if (window.WNS.showToast) {
-      window.WNS.showToast(`📦 ${item.name} dipesan! Kurir tiba dalam ${sec} detik.`);
-    }
+    if (window.WNS.showToast) window.WNS.showToast(`📦 ${item.name} dipesan! Kurir tiba dalam ${sec} detik.`);
     render();
   }
 
   function tickIngredientDeliveries() {
     const sd = getSaveData();
     if (sd.activeDeliveries.length === 0) return;
-
     const now = Date.now();
     const stillOnWay = [];
     let arrived = false;
-
     sd.activeDeliveries.forEach((d) => {
       if (now >= d.endTime) {
         arrived = true;
         sd.ingredients[d.ingId] = Number(sd.ingredients[d.ingId] || 0) + d.stockAdd;
-        if (window.WNS.showToast) {
-          window.WNS.showToast(`✅ Kurir tiba! Stok ${d.name} +${d.stockAdd}.`);
-        }
+        if (window.WNS.showToast) window.WNS.showToast(`✅ Kurir tiba! Stok ${d.name} +${d.stockAdd}.`);
       } else {
         stillOnWay.push(d);
       }
     });
-
     sd.activeDeliveries = stillOnWay;
-    if (arrived && window.WNS.Main && window.WNS.Main.saveLocalProgress) {
-      window.WNS.Main.saveLocalProgress(false);
-    }
-
+    if (arrived && window.WNS.Main && window.WNS.Main.saveLocalProgress) window.WNS.Main.saveLocalProgress(false);
     const modal = document.getElementById("phone-modal");
-    if (modal && !modal.classList.contains("hidden") && (activePhoneTab === "SHOP" || activePhoneTab === "HIAS")) {
-      render();
-    }
+    if (modal && modal.style.display !== "none" && !modal.classList.contains("hidden")) render();
   }
 
   function render() {
     cleanBottomHudClutter();
     const sd = getSaveData();
     ensureOnlineOrders();
-
-    const modal = document.getElementById("phone-modal");
-    if (!modal) return;
-
-    const bodyBox =
-      modal.querySelector(".modal-body") ||
-      document.getElementById("online-orders-list") ||
-      document.getElementById("phone-shop-list");
-    if (!bodyBox) return;
+    const modal = ensurePhoneModal();
 
     const coins = Number(sd.coins || 0);
     const delivFurnCount = Array.isArray(sd.furnitureDeliveries) ? sd.furnitureDeliveries.length : 0;
     const ingDelivCount = sd.activeDeliveries.length;
 
     let contentHtml = "";
-
     if (activePhoneTab === "ORDERS") {
       contentHtml = sd.onlineOrders
         .map((ord) => {
@@ -436,12 +428,7 @@ window.WNS.PhoneShop = (function () {
     } else if (activePhoneTab === "SHOP") {
       const banner =
         ingDelivCount > 0
-          ? `<div class="shop-item" style="border:1px solid #38bdf8;">
-              <div>
-                <strong>🚚 Kurir Bahan (${ingDelivCount} paket di jalan)</strong>
-                <p>Otomatis masuk ke dapur setelah kurir sampai.</p>
-              </div>
-            </div>`
+          ? `<div class="shop-item" style="border:1px solid #38bdf8;"><div><strong>🚚 Kurir Bahan (${ingDelivCount} paket di jalan)</strong><p>Otomatis masuk ke dapur setelah kurir sampai.</p></div></div>`
           : "";
       contentHtml =
         banner +
@@ -474,11 +461,12 @@ window.WNS.PhoneShop = (function () {
       contentHtml = `<div id="cities-list"></div>`;
     }
 
-    bodyBox.innerHTML = `
+    modal.innerHTML = `
       <div class="wns-phone-shell">
         <div class="wns-phone-status">
           <span>📶 RIFKI-5G • WarungOS</span>
           <span style="color:#34d399;">Rp ${coins.toLocaleString("id-ID")}</span>
+          <button type="button" class="wns-close-phone" data-close-phone="1">✕ Tutup</button>
         </div>
         <div class="wns-phone-apps">
           <button type="button" class="wns-app-btn ${activePhoneTab === "ORDERS" ? "active" : ""}" data-phone-tab="ORDERS">
@@ -516,26 +504,20 @@ window.WNS.PhoneShop = (function () {
   }
 
   function openModal(initialTab) {
-    const modal = document.getElementById("phone-modal");
-    if (!modal) return;
     if (initialTab) activePhoneTab = initialTab;
     render();
-    modal.classList.remove("hidden");
+    showPhoneModal();
+  }
+
+  function toggleBottomBar() {
+    const folded = document.body.classList.toggle("wns-bottom-folded");
+    const foldEl = document.getElementById("wns-fold-bottom-btn");
+    if (foldEl) foldEl.textContent = folded ? "🔼 Buka Bar" : "🔽 Lipat Bar";
   }
 
   function setupBottomFold() {
     const gameScreen = document.getElementById("game-screen");
     if (!gameScreen) return;
-
-    const candidates = gameScreen.querySelectorAll(
-      "#hud-bottom, .hud-bottom, #bottom-hud, .bottom-hud, #bottom-bar, .bottom-bar, #kitchen-panel, #cooking-panel, .cooking-panel, #inventory-bar, .inventory-bar, #controls-bar"
-    );
-    candidates.forEach((el) => {
-      if (!el.closest(".modal, #phone-modal")) {
-        el.classList.add("wns-compact-bottom");
-      }
-    });
-
     if (!document.getElementById("wns-mini-dock")) {
       const dock = document.createElement("div");
       dock.id = "wns-mini-dock";
@@ -545,17 +527,12 @@ window.WNS.PhoneShop = (function () {
       phoneQuick.className = "wns-dock-pill";
       phoneQuick.type = "button";
       phoneQuick.textContent = "📱 HP";
-      phoneQuick.onclick = () => openModal();
 
       const foldBtn = document.createElement("button");
       foldBtn.id = "wns-fold-bottom-btn";
       foldBtn.className = "wns-dock-pill";
       foldBtn.type = "button";
       foldBtn.textContent = "🔽 Lipat Bar";
-      foldBtn.onclick = () => {
-        const folded = document.body.classList.toggle("wns-bottom-folded");
-        foldBtn.textContent = folded ? "🔼 Buka Bar" : "🔽 Lipat Bar";
-      };
 
       dock.appendChild(phoneQuick);
       dock.appendChild(foldBtn);
@@ -573,6 +550,27 @@ window.WNS.PhoneShop = (function () {
     document.addEventListener("click", (e) => {
       const t = e.target;
 
+      if (t.closest("#wns-fold-bottom-btn")) {
+        e.preventDefault();
+        e.stopPropagation();
+        toggleBottomBar();
+        return;
+      }
+
+      if (t.closest("#wns-quick-phone-btn")) {
+        e.preventDefault();
+        e.stopPropagation();
+        openModal();
+        return;
+      }
+
+      if (t.closest("[data-close-phone]") || t.id === "phone-modal") {
+        e.preventDefault();
+        e.stopPropagation();
+        hidePhoneModal();
+        return;
+      }
+
       const tabBtn = t.closest("[data-phone-tab]");
       if (tabBtn) {
         activePhoneTab = tabBtn.getAttribute("data-phone-tab");
@@ -584,9 +582,7 @@ window.WNS.PhoneShop = (function () {
         const sd = getSaveData();
         sd.showDecorBar = !sd.showDecorBar;
         document.body.classList.toggle("wns-show-decor-bar", sd.showDecorBar);
-        if (window.WNS.Main && window.WNS.Main.saveLocalProgress) {
-          window.WNS.Main.saveLocalProgress(false);
-        }
+        if (window.WNS.Main && window.WNS.Main.saveLocalProgress) window.WNS.Main.saveLocalProgress(false);
         render();
         return;
       }
@@ -605,24 +601,17 @@ window.WNS.PhoneShop = (function () {
       }
 
       if (t.closest("[data-place-now], [data-edit-placed]")) {
-        const modal = document.getElementById("phone-modal");
-        if (modal) modal.classList.add("hidden");
+        hidePhoneModal();
       }
     });
-
-    const modal = document.getElementById("phone-modal");
-    if (modal && typeof MutationObserver !== "undefined") {
-      const obs = new MutationObserver(() => {
-        if (!modal.classList.contains("hidden")) render();
-      });
-      obs.observe(modal, { attributes: true, attributeFilter: ["class"] });
-    }
   }
 
   return {
     init,
     openModal,
     open: openModal,
+    closeModal: hidePhoneModal,
+    toggleBottomBar,
     render,
     renderList: render,
     deliverOrder,
