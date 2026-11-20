@@ -20,41 +20,64 @@ body {
   display: none !important;
 }
 
-/* ================= PENGATUR LAYAR LOBBY & GAME ================= */
-.screen,
-.lobby-screen,
-.game-screen {
+/* ================= CANVAS 3D SELALU AKTIF DI BELAKANG ================= */
+#unity-3d-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  z-index: 1;
+  touch-action: none;
+}
+
+#game-screen {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 5;
+}
+
+#game-screen:not(.active) .hud-top,
+#game-screen:not(.active) .multiplayer-bar,
+#game-screen:not(.active) .joystick-zone,
+#game-screen:not(.active) .hud-dock,
+#game-screen:not(.active) .modal-overlay,
+#game-screen:not(.active) .game-toast {
+  display: none !important;
+}
+
+/* ================= LAYAR LOBBY TRANSPARAN DI ATAS 3D ================= */
+#lobby-screen {
   display: none;
   position: fixed;
   inset: 0;
   width: 100%;
   height: 100%;
+  z-index: 40;
 }
 
-.screen.active,
-.lobby-screen.active,
-.game-screen.active {
-  display: block;
-}
-
-/* ================= LAYAR LOBBY ================= */
 #lobby-screen.active {
   display: flex;
   justify-content: center;
-  align-items: flex-start;
+  align-items: center;
   overflow-y: auto;
-  z-index: 40;
-  padding: 14px 12px 28px;
-  background: radial-gradient(circle at top, #1e293b 0%, #090d16 100%);
+  padding: 12px;
+  background: rgba(9, 13, 22, 0.42);
+  backdrop-filter: blur(3px);
 }
 
 .lobby-card {
   width: 100%;
-  max-width: 460px;
-  background: rgba(15, 23, 42, 0.94);
-  border: 1.5px solid rgba(245, 158, 11, 0.45);
+  max-width: 450px;
+  max-height: 94vh;
+  overflow-y: auto;
+  background: rgba(15, 23, 42, 0.88);
+  border: 1.5px solid rgba(245, 158, 11, 0.55);
   border-radius: 18px;
-  padding: 16px;
+  padding: 14px 16px;
   box-shadow: 0 18px 40px rgba(0, 0, 0, 0.65);
 }
 
@@ -64,19 +87,19 @@ body {
   font-weight: 800;
   letter-spacing: 1px;
   color: #fbbf24;
-  background: rgba(245, 158, 11, 0.14);
-  border: 1px solid rgba(245, 158, 11, 0.4);
+  background: rgba(245, 158, 11, 0.16);
+  border: 1px solid rgba(245, 158, 11, 0.45);
   padding: 3px 9px;
   border-radius: 999px;
-  margin-bottom: 6px;
+  margin-bottom: 5px;
 }
 
 .game-title {
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 900;
   line-height: 1.15;
   color: #ffffff;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 
 .game-title span {
@@ -84,11 +107,11 @@ body {
 }
 
 .lobby-section {
-  background: rgba(30, 41, 59, 0.65);
-  border: 1px solid rgba(148, 163, 184, 0.16);
+  background: rgba(30, 41, 59, 0.68);
+  border: 1px solid rgba(148, 163, 184, 0.18);
   border-radius: 12px;
-  padding: 10px;
-  margin-bottom: 10px;
+  padding: 9px 10px;
+  margin-bottom: 9px;
 }
 
 .sec-label {
@@ -96,7 +119,7 @@ body {
   font-size: 11px;
   font-weight: 700;
   color: #cbd5e1;
-  margin-bottom: 7px;
+  margin-bottom: 6px;
 }
 
 .input-row {
@@ -174,7 +197,7 @@ input:focus {
 
 .mode-card {
   text-align: left;
-  padding: 9px 10px;
+  padding: 8px 10px;
   border-radius: 10px;
   border: 1.5px solid #334155;
   background: #0f172a;
@@ -197,7 +220,7 @@ input:focus {
 
 .mode-card.active {
   border-color: #f59e0b;
-  background: rgba(245, 158, 11, 0.14);
+  background: rgba(245, 158, 11, 0.16);
 }
 
 .room-box {
@@ -229,7 +252,7 @@ input:focus {
 
 .start-btn {
   width: 100%;
-  padding: 12px;
+  padding: 11px;
   border: none;
   border-radius: 12px;
   background: linear-gradient(135deg, #f59e0b, #d97706);
@@ -238,7 +261,7 @@ input:focus {
   font-weight: 900;
   letter-spacing: 0.5px;
   cursor: pointer;
-  margin-top: 4px;
+  margin-top: 2px;
 }
 
 /* ================= CUTSCENE / LOADING ================= */
@@ -246,7 +269,7 @@ input:focus {
   position: fixed;
   inset: 0;
   z-index: 90;
-  background: #090d16;
+  background: rgba(9, 13, 22, 0.94);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -297,21 +320,7 @@ input:focus {
   transition: width 0.2s ease;
 }
 
-/* ================= LAYAR GAMEPLAY 3D & HUD ================= */
-#game-screen.active {
-  z-index: 10;
-}
-
-#unity-3d-canvas {
-  position: fixed;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  display: block;
-  z-index: 1;
-  touch-action: none;
-}
-
+/* ================= HUD GAMEPLAY ================= */
 .hud-top {
   position: fixed;
   top: 8px;
@@ -387,6 +396,7 @@ input:focus {
   left: 8px;
   right: 8px;
   z-index: 20;
+  pointer-events: auto;
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
@@ -486,6 +496,7 @@ input:focus {
   bottom: 72px;
   left: 16px;
   z-index: 22;
+  pointer-events: auto;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -527,6 +538,7 @@ input:focus {
   left: 8px;
   right: 8px;
   z-index: 22;
+  pointer-events: auto;
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 6px;
@@ -566,11 +578,12 @@ input:focus {
   font-weight: 700;
 }
 
-/* ================= MODAL POPUP (HP ORDER, HIAS, KOTA) ================= */
+/* ================= MODAL POPUP ================= */
 .modal-overlay {
   position: fixed;
   inset: 0;
   z-index: 60;
+  pointer-events: auto;
   background: rgba(2, 6, 23, 0.78);
   display: flex;
   justify-content: center;
