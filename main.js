@@ -2,16 +2,22 @@
 window.WNS = window.WNS || {};
 window.WNS.State = window.WNS.State || {
   currentUser: null,
+  authMode: "login",
   gameMode: "solo",
   roomCode: "WARUNG-01",
   graphicsTier: "MID",
+  cameraMode: "third",
+  sensitivity: 1.0,
   saveData: {
     coins: 50000,
     level: 1,
     rep: 10,
     cityId: "jakarta",
+    unlockedCities: ["jakarta"],
     furniture: [],
-    inventory: { nasi_goreng: 5, ayam_bakar: 4, es_teh: 4 }
+    ownedFurniture: [],
+    inventory: { nasi_goreng: 5, ayam_bakar: 4, es_teh: 4 },
+    stock: { nasi_goreng: 5, ayam_bakar: 4, es_teh: 4 }
   }
 };
 
@@ -42,6 +48,15 @@ window.WNS.Main = (function () {
   function refreshHud() {
     const sd = window.WNS.State.saveData || {};
     const name = getDisplayName();
+    const formattedCoins = "Rp " + Number(sd.coins || 0).toLocaleString("id-ID");
+    const lvl = String(sd.level || 1);
+
+    const lobbyUser = document.getElementById("lobby-username");
+    const lobbyCoins = document.getElementById("lobby-coins");
+    const lobbyLvl = document.getElementById("lobby-level");
+    if (lobbyUser) lobbyUser.textContent = name;
+    if (lobbyCoins) lobbyCoins.textContent = formattedCoins;
+    if (lobbyLvl) lobbyLvl.textContent = "Lv. " + lvl;
 
     const avatarEl = document.getElementById("hud-avatar");
     const nameEl = document.getElementById("hud-player-name");
@@ -51,8 +66,8 @@ window.WNS.Main = (function () {
     const coinsEl = document.getElementById("hud-coins");
     const levelEl = document.getElementById("hud-level");
     const repEl = document.getElementById("hud-rep");
-    if (coinsEl) coinsEl.textContent = "Rp " + Number(sd.coins || 0).toLocaleString("id-ID");
-    if (levelEl) levelEl.textContent = String(sd.level || 1);
+    if (coinsEl) coinsEl.textContent = formattedCoins;
+    if (levelEl) levelEl.textContent = lvl;
     if (repEl) repEl.textContent = String(sd.rep || 10);
 
     const cities = (window.WNS.Config && window.WNS.Config.CITIES) || [];
@@ -63,7 +78,8 @@ window.WNS.Main = (function () {
 
     let tempReduce = 0;
     const furnList = (window.WNS.Config && window.WNS.Config.FURNITURE_ITEMS) || [];
-    (sd.furniture || []).forEach((fid) => {
+    const ownedList = sd.furniture || sd.ownedFurniture || [];
+    ownedList.forEach((fid) => {
       const f = furnList.find((item) => item.id === fid);
       if (f) tempReduce += f.tempReduce || 0;
     });
@@ -90,6 +106,13 @@ window.WNS.Main = (function () {
       if (raw) {
         const parsed = JSON.parse(raw);
         window.WNS.State.saveData = Object.assign({}, window.WNS.State.saveData, parsed);
+        if (!Array.isArray(window.WNS.State.saveData.unlockedCities)) {
+          window.WNS.State.saveData.unlockedCities = ["jakarta"];
+        }
+        if (!Array.isArray(window.WNS.State.saveData.furniture)) {
+          window.WNS.State.saveData.furniture = [];
+        }
+        window.WNS.State.saveData.ownedFurniture = window.WNS.State.saveData.furniture;
       }
     } catch (e) {}
   }
@@ -106,76 +129,62 @@ window.WNS.Main = (function () {
     } catch (e) {}
   }
 
-  function runStartCutscene(onDone) {
-    const cs = window.WNS.Cutscene;
-    if (cs && typeof cs.play === "function") {
-      cs.play(onDone);
-      return;
-    }
-    if (cs && typeof cs.start === "function") {
-      cs.start(onDone);
-      return;
+  function proceedFromLoginToLobby() {
+    const loginScreen = document.getElementById("login-screen");
+    const lobbyScreen = document.getElementById("lobby-screen");
+
+    if (window.WNS.Engine3D && window.WNS.Engine3D.setCinematicMode) {
+      window.WNS.Engine3D.setCinematicMode(true);
     }
 
-    const overlay = document.getElementById("cutscene-overlay");
-    const bar = document.getElementById("cutscene-bar");
-    const txt = document.getElementById("cutscene-text");
-    if (!overlay) {
-      onDone();
-      return;
+    const showLobby = () => {
+      if (loginScreen) loginScreen.classList.remove("active");
+      if (lobbyScreen) lobbyScreen.classList.add("active");
+      refreshHud();
+    };
+
+    if (window.WNS.Cutscene && typeof window.WNS.Cutscene.play === "function") {
+      if (loginScreen) loginScreen.classList.remove("active");
+      window.WNS.Cutscene.play(showLobby);
+    } else {
+      showLobby();
     }
-
-    overlay.classList.remove("hidden");
-    if (bar) bar.style.width = "10%";
-    if (txt) txt.textContent = "RIFKI STUDIO • Memuat aset 3D warung...";
-
-    setTimeout(() => {
-      if (bar) bar.style.width = "45%";
-      if (txt) txt.textContent = "Menyalakan kompor & menata meja racik...";
-    }, 350);
-
-    setTimeout(() => {
-      if (bar) bar.style.width = "80%";
-      if (txt) txt.textContent = "Membuka pintu Warung Nusantara...";
-    }, 750);
-
-    setTimeout(() => {
-      if (bar) bar.style.width = "100%";
-      if (txt) txt.textContent = "Warung siap buka!";
-    }, 1100);
-
-    setTimeout(() => {
-      overlay.classList.add("hidden");
-      if (bar) bar.style.width = "0%";
-      onDone();
-    }, 1400);
   }
 
   function enterGameplay() {
-    runStartCutscene(() => {
-      const lobby = document.getElementById("lobby-screen");
-      const game = document.getElementById("game-screen");
-      if (lobby) lobby.classList.remove("active");
-      if (game) game.classList.add("active");
+    const lobby = document.getElementById("lobby-screen");
+    const game = document.getElementById("game-screen");
+    if (lobby) lobby.classList.remove("active");
+    if (game) game.classList.add("active");
 
-      if (window.WNS.Engine3D && window.WNS.Engine3D.setCinematicMode) {
+    if (window.WNS.Engine3D) {
+      if (window.WNS.Engine3D.setCinematicMode) {
         window.WNS.Engine3D.setCinematicMode(false);
       }
-
-      const mode = window.WNS.State.gameMode;
-      const lobbyRoom = document.getElementById("lobby-room-input");
-      const gameRoom = document.getElementById("room-code-input");
-      const code = ((lobbyRoom && lobbyRoom.value) || "WARUNG-01").trim().toUpperCase() || "WARUNG-01";
-      window.WNS.State.roomCode = code;
-      if (gameRoom) gameRoom.value = code;
-
-      if (mode === "multiplayer" && window.WNS.MultiplayerMic) {
-        window.WNS.MultiplayerMic.joinRoom(code);
+      if (window.WNS.Engine3D.setCameraMode) {
+        window.WNS.Engine3D.setCameraMode(window.WNS.State.cameraMode || "third");
       }
+    }
 
-      refreshHud();
-      showToast("Warung dibuka! Tekan Masak & Layani buat racik pesanan.");
-    });
+    const camBtn = document.getElementById("btn-toggle-cam");
+    if (camBtn) {
+      camBtn.textContent =
+        window.WNS.State.cameraMode === "first" ? "Kamera: POV Depan" : "Kamera: POV Belakang";
+    }
+
+    const mode = window.WNS.State.gameMode;
+    const lobbyRoom = document.getElementById("lobby-room-input");
+    const gameRoom = document.getElementById("room-code-input");
+    const code = ((lobbyRoom && lobbyRoom.value) || "WARUNG-01").trim().toUpperCase() || "WARUNG-01";
+    window.WNS.State.roomCode = code;
+    if (gameRoom) gameRoom.value = code;
+
+    if (mode === "multiplayer" && window.WNS.MultiplayerMic) {
+      window.WNS.MultiplayerMic.joinRoom(code);
+    }
+
+    refreshHud();
+    showToast("Warung dibuka! Tekan Masak & Layani buat racik pesanan.");
   }
 
   function backToLobby() {
@@ -191,6 +200,32 @@ window.WNS.Main = (function () {
     if (window.WNS.Engine3D) {
       if (window.WNS.Engine3D.setPrepCameraMode) window.WNS.Engine3D.setPrepCameraMode(false);
       if (window.WNS.Engine3D.setCinematicMode) window.WNS.Engine3D.setCinematicMode(true);
+    }
+    refreshHud();
+  }
+
+  function switchAccount() {
+    saveLocalProgress(false);
+    if (window.WNS.MultiplayerMic && window.WNS.MultiplayerMic.leaveCurrentRoom) {
+      window.WNS.MultiplayerMic.leaveCurrentRoom();
+    }
+    try {
+      if (typeof firebase !== "undefined" && firebase.apps && firebase.apps.length > 0 && firebase.auth) {
+        firebase.auth().signOut();
+      }
+    } catch (e) {}
+
+    window.WNS.State.currentUser = null;
+    const lobby = document.getElementById("lobby-screen");
+    const game = document.getElementById("game-screen");
+    const login = document.getElementById("login-screen");
+    const statusEl = document.getElementById("auth-status");
+    if (lobby) lobby.classList.remove("active");
+    if (game) game.classList.remove("active");
+    if (login) login.classList.add("active");
+    if (statusEl) {
+      statusEl.classList.remove("error");
+      statusEl.textContent = "";
     }
   }
 
@@ -290,6 +325,107 @@ window.WNS.Main = (function () {
   }
 
   function bindAllButtons() {
+    const tabLogin = document.getElementById("tab-login-btn");
+    const tabReg = document.getElementById("tab-register-btn");
+    const submitBtn = document.getElementById("btn-auth-submit");
+    const statusEl = document.getElementById("auth-status");
+
+    if (tabLogin && tabReg && submitBtn) {
+      tabLogin.addEventListener("click", () => {
+        window.WNS.State.authMode = "login";
+        tabLogin.classList.add("active");
+        tabReg.classList.remove("active");
+        submitBtn.textContent = "Login & Masuk Game";
+        if (statusEl) statusEl.textContent = "";
+      });
+
+      tabReg.addEventListener("click", () => {
+        window.WNS.State.authMode = "register";
+        tabReg.classList.add("active");
+        tabLogin.classList.remove("active");
+        submitBtn.textContent = "Daftar & Masuk Game";
+        if (statusEl) statusEl.textContent = "";
+      });
+    }
+
+    if (submitBtn) {
+      submitBtn.addEventListener("click", async () => {
+        const userInput = document.getElementById("auth-username");
+        const passInput = document.getElementById("auth-password");
+        const rawUser = (userInput && userInput.value.trim()) || "";
+        const pass = (passInput && passInput.value) || "";
+
+        if (!rawUser || pass.length < 6) {
+          if (statusEl) {
+            statusEl.classList.add("error");
+            statusEl.textContent = "Isi Username/Email dan Password minimal 6 karakter.";
+          }
+          return;
+        }
+
+        const displayName = rawUser.includes("@") ? rawUser.split("@")[0] : rawUser;
+        const emailForFirebase = rawUser.includes("@")
+          ? rawUser
+          : rawUser.toLowerCase().replace(/[^a-z0-9._-]/g, "") + "@wns.rifkidev.id";
+
+        if (statusEl) {
+          statusEl.classList.remove("error");
+          statusEl.textContent = "Menghubungkan akun...";
+        }
+
+        try {
+          if (typeof firebase !== "undefined" && firebase.apps && firebase.apps.length > 0 && firebase.auth) {
+            let cred;
+            if (window.WNS.State.authMode === "register") {
+              cred = await firebase.auth().createUserWithEmailAndPassword(emailForFirebase, pass);
+              if (cred.user && cred.user.updateProfile) {
+                await cred.user.updateProfile({ displayName });
+              }
+            } else {
+              cred = await firebase.auth().signInWithEmailAndPassword(emailForFirebase, pass);
+            }
+            window.WNS.State.currentUser = {
+              uid: cred.user.uid,
+              email: emailForFirebase,
+              displayName
+            };
+          } else {
+            window.WNS.State.currentUser = {
+              uid: "local_" + displayName.toLowerCase(),
+              email: emailForFirebase,
+              displayName
+            };
+          }
+
+          if (statusEl) {
+            statusEl.classList.remove("error");
+            statusEl.textContent = "Login berhasil! Memuat warung...";
+          }
+          setTimeout(proceedFromLoginToLobby, 450);
+        } catch (err) {
+          if (statusEl) {
+            statusEl.classList.add("error");
+            statusEl.textContent = "Gagal: " + (err.message || "Periksa kembali data akunmu");
+          }
+        }
+      });
+    }
+
+    const guestBtn = document.getElementById("btn-guest");
+    if (guestBtn) {
+      guestBtn.addEventListener("click", () => {
+        window.WNS.State.currentUser = {
+          uid: "guest_" + Math.floor(1000 + Math.random() * 9000),
+          displayName: "Juragan"
+        };
+        if (statusEl) {
+          statusEl.classList.remove("error");
+          statusEl.textContent = "Masuk sebagai Tamu! Memuat warung...";
+        }
+        setTimeout(proceedFromLoginToLobby, 350);
+      });
+    }
+
     const soloBtn = document.getElementById("mode-solo-btn");
     const multiBtn = document.getElementById("mode-multi-btn");
     const roomBox = document.getElementById("lobby-room-box");
@@ -324,75 +460,39 @@ window.WNS.Main = (function () {
       });
     });
 
-    const statusEl = document.getElementById("auth-status");
-    const emailEl = document.getElementById("auth-email");
-    const passEl = document.getElementById("auth-password");
+    document.querySelectorAll(".cam-init-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".cam-init-btn").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        window.WNS.State.cameraMode = btn.getAttribute("data-cam") || "third";
+      });
+    });
 
-    const loginBtn = document.getElementById("btn-login");
-    if (loginBtn) {
-      loginBtn.addEventListener("click", async () => {
-        const email = (emailEl && emailEl.value.trim()) || "";
-        const pass = (passEl && passEl.value) || "";
-        if (!email || !pass) {
-          if (statusEl) statusEl.textContent = "Isi email & password dulu ya.";
-          return;
-        }
-        try {
-          if (typeof firebase !== "undefined" && firebase.apps && firebase.apps.length > 0 && firebase.auth) {
-            const cred = await firebase.auth().signInWithEmailAndPassword(email, pass);
-            window.WNS.State.currentUser = cred.user;
-            if (statusEl) statusEl.textContent = "Berhasil masuk sebagai " + email;
-          } else {
-            window.WNS.State.currentUser = { uid: "local_" + Date.now(), email };
-            if (statusEl) statusEl.textContent = "Masuk lokal sebagai " + email;
-          }
-          refreshHud();
-        } catch (err) {
-          if (statusEl) statusEl.textContent = "Gagal masuk: " + (err.message || "Cek email/password");
+    document.querySelectorAll(".sens-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".sens-btn").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        const sens = Number(btn.getAttribute("data-sens")) || 1.0;
+        window.WNS.State.sensitivity = sens;
+        if (window.WNS.Engine3D && typeof window.WNS.Engine3D.setSensitivity === "function") {
+          window.WNS.Engine3D.setSensitivity(sens);
         }
       });
-    }
-
-    const regBtn = document.getElementById("btn-register");
-    if (regBtn) {
-      regBtn.addEventListener("click", async () => {
-        const email = (emailEl && emailEl.value.trim()) || "";
-        const pass = (passEl && passEl.value) || "";
-        if (!email || pass.length < 6) {
-          if (statusEl) statusEl.textContent = "Isi email & password minimal 6 karakter.";
-          return;
-        }
-        try {
-          if (typeof firebase !== "undefined" && firebase.apps && firebase.apps.length > 0 && firebase.auth) {
-            const cred = await firebase.auth().createUserWithEmailAndPassword(email, pass);
-            window.WNS.State.currentUser = cred.user;
-            if (statusEl) statusEl.textContent = "Akun dibuat! Selamat datang " + email;
-          } else {
-            window.WNS.State.currentUser = { uid: "local_" + Date.now(), email };
-            if (statusEl) statusEl.textContent = "Akun lokal siap: " + email;
-          }
-          refreshHud();
-        } catch (err) {
-          if (statusEl) statusEl.textContent = "Gagal daftar: " + (err.message || "Coba email lain");
-        }
-      });
-    }
-
-    const guestBtn = document.getElementById("btn-guest");
-    if (guestBtn) {
-      guestBtn.addEventListener("click", () => {
-        window.WNS.State.currentUser = { uid: "guest_" + Math.floor(1000 + Math.random() * 9000), displayName: "Juragan" };
-        if (statusEl) statusEl.textContent = "Mode Tamu aktif! Langsung pencet Mulai Buka Warung.";
-        refreshHud();
-      });
-    }
+    });
 
     const startBtn = document.getElementById("btn-start-game");
     if (startBtn) startBtn.addEventListener("click", enterGameplay);
 
+    const switchAccBtn = document.getElementById("btn-switch-account");
+    if (switchAccBtn) switchAccBtn.addEventListener("click", switchAccount);
+
     const pauseBtn = document.getElementById("btn-open-pause");
     if (pauseBtn) {
       pauseBtn.addEventListener("click", () => {
+        const gameRoom = document.getElementById("room-code-input");
+        if (gameRoom && window.WNS.State.roomCode) {
+          gameRoom.value = window.WNS.State.roomCode;
+        }
         const m = document.getElementById("pause-modal");
         if (m) m.classList.remove("hidden");
       });
@@ -402,6 +502,7 @@ window.WNS.Main = (function () {
     if (camBtn && window.WNS.Engine3D) {
       camBtn.addEventListener("click", () => {
         const nextMode = window.WNS.Engine3D.getCameraMode() === "third" ? "first" : "third";
+        window.WNS.State.cameraMode = nextMode;
         window.WNS.Engine3D.setCameraMode(nextMode);
         camBtn.textContent = nextMode === "first" ? "Kamera: POV Depan" : "Kamera: POV Belakang";
       });

@@ -3,76 +3,149 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Warung Nusantara Simulator 3D - RIFKI STUDIO</title>
+  <title>Warung Nusantara Simulator 3D - RIFKI DEV</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <!-- CANVAS DUNIA 3D -->
   <canvas id="unity-3d-canvas"></canvas>
 
-  <!-- LAYAR LOBBY -->
-  <div id="lobby-screen" class="lobby-screen active">
-    <div class="lobby-card">
-      <div class="studio-tag">BY RIFKI STUDIO</div>
-      <h1 class="game-title">WARUNG NUSANTARA <span>SIMULATOR 3D</span></h1>
+  <!-- 1. LAYAR LOGIN TERPISAH -->
+  <div id="login-screen" class="login-screen active">
+    <div class="login-card">
+      <div class="network-tag">RIFKI DEV NETWORK</div>
+      <h1 class="login-title">Warung Nusantara 3D</h1>
+      <p class="login-sub">Login dulu buat muat progres warung kamu.</p>
 
-      <div class="lobby-section">
-        <span class="sec-label">Akun Juragan (Opsional buat Cloud Save)</span>
-        <div class="input-row">
-          <input type="email" id="auth-email" placeholder="Email (contoh: rifki@gmail.com)" />
-          <input type="password" id="auth-password" placeholder="Password" />
-        </div>
-        <div class="btn-row">
-          <button type="button" id="btn-login" class="mini-btn">Masuk</button>
-          <button type="button" id="btn-register" class="mini-btn secondary">Daftar</button>
-          <button type="button" id="btn-guest" class="mini-btn ghost">Main Tamu</button>
-        </div>
-        <div id="auth-status" class="status-hint">Mode Tamu siap dimainkan.</div>
+      <div class="auth-tabs">
+        <button type="button" id="tab-login-btn" class="auth-tab active">Login</button>
+        <button type="button" id="tab-register-btn" class="auth-tab">Daftar Akun</button>
       </div>
 
-      <div class="lobby-section">
-        <span class="sec-label">Mode Bermain</span>
+      <div class="auth-form">
+        <label class="field-label" for="auth-username">Username / Email</label>
+        <input type="text" id="auth-username" placeholder="Contoh: Yttaaja67" autocomplete="username" />
+
+        <label class="field-label" for="auth-password">Password</label>
+        <input type="password" id="auth-password" placeholder="••••••••" autocomplete="current-password" />
+
+        <button type="button" id="btn-auth-submit" class="primary-auth-btn">Login &amp; Masuk Game</button>
+        <button type="button" id="btn-guest" class="guest-link-btn">Main sebagai Tamu (Tanpa Akun)</button>
+      </div>
+
+      <div id="auth-status" class="auth-status-text"></div>
+    </div>
+  </div>
+
+  <!-- 2. CUTSCENE 2 TAHAP (RIFKI DEV -> WARUNG NUSANTARA SIMULATOR) -->
+  <div id="cutscene-overlay" class="cutscene-overlay hidden">
+    <!-- Tahap 1: Splash Studio -->
+    <div id="cutscene-stage-1" class="cs-stage cs-stage-studio">
+      <div class="r-logo-box">R</div>
+      <div class="studio-wordmark">RIFKI <span>DEV</span></div>
+      <div class="studio-engine-sub">UNITY-GRADE MOBILE ENGINE</div>
+
+      <div class="cs-progress-wrap">
+        <div class="cs-progress-meta">
+          <span id="cs1-status">Mengoptimalkan shader HP...</span>
+          <span id="cs1-percent">0%</span>
+        </div>
+        <div class="cs-track">
+          <div id="cs1-bar" class="cs-fill cyan"></div>
+        </div>
+        <div id="cs1-hw-info" class="cs-hw-info">Perangkat: 8 Core | RAM ~4GB | Mode Grafik: MID</div>
+      </div>
+    </div>
+
+    <!-- Tahap 2: Splash Game -->
+    <div id="cutscene-stage-2" class="cs-stage cs-stage-game hidden">
+      <div class="gold-divider"></div>
+      <div class="present-tag">MEMPERSEMBAHKAN</div>
+      <h2 class="present-title">WARUNG NUSANTARA</h2>
+      <div class="present-sub">SIMULATOR</div>
+
+      <div class="cs-progress-wrap">
+        <div class="cs-progress-meta">
+          <span id="cs2-status">Membangun jalan raya &amp; ruko...</span>
+          <span id="cs2-percent">0%</span>
+        </div>
+        <div class="cs-track">
+          <div id="cs2-bar" class="cs-fill gold"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. LAYAR LOBBY TERPISAH (PANEL KIRI + PREVIEW 3D KANAN) -->
+  <div id="lobby-screen" class="lobby-screen">
+    <div class="lobby-sidebar">
+      <div class="edition-tag">RIFKI DEV • 3D EDITION</div>
+      <h2 class="lobby-title">WARUNG NUSANTARA SIMULATOR</h2>
+      <div class="lobby-user-bar">
+        <span id="lobby-username">Juragan</span> •
+        <strong id="lobby-coins">Rp 50.000</strong> •
+        <strong id="lobby-level">Lv. 1</strong>
+      </div>
+
+      <div class="lobby-group">
+        <span class="group-label">PILIH MODE PERMAINAN</span>
         <div class="mode-grid">
           <button type="button" id="mode-solo-btn" class="mode-card active">
             <strong>Singleplayer</strong>
-            <span>Main santai kelola warung sendiri</span>
+            <span>Main solo santai urus warung</span>
           </button>
           <button type="button" id="mode-multi-btn" class="mode-card">
-            <strong>Multiplayer Mabar</strong>
-            <span>Satu warung bareng teman + Mic</span>
+            <strong>Multiplayer</strong>
+            <span>Mabar online + fitur On Mic</span>
           </button>
         </div>
         <div id="lobby-room-box" class="room-box hidden">
-          <input type="text" id="lobby-room-input" value="WARUNG-01" placeholder="Masukkan Kode Room" />
+          <input type="text" id="lobby-room-input" value="WARUNG-01" placeholder="Masukkan Kode Room Mabar" />
         </div>
       </div>
 
-      <div class="lobby-section">
-        <span class="sec-label">Kualitas Grafik</span>
-        <div class="tier-row">
-          <button type="button" class="tier-btn" data-tier="LOW">Ringan (HP Kentang)</button>
-          <button type="button" class="tier-btn active" data-tier="MID">Sedang</button>
-          <button type="button" class="tier-btn" data-tier="HIGH">Tinggi HD</button>
+      <div class="lobby-group">
+        <span class="group-label">SETTING GRAFIK &amp; KAMERA</span>
+
+        <div class="setting-row">
+          <span class="setting-name">Kualitas Grafik</span>
+          <div class="seg-group">
+            <button type="button" class="seg-btn tier-btn" data-tier="LOW">Kentang</button>
+            <button type="button" class="seg-btn tier-btn active" data-tier="MID">Sedang</button>
+            <button type="button" class="seg-btn tier-btn" data-tier="HIGH">Tinggi</button>
+          </div>
+        </div>
+
+        <div class="setting-row">
+          <span class="setting-name">Kamera Awal</span>
+          <div class="seg-group">
+            <button type="button" class="seg-btn cam-init-btn active" data-cam="third">Belakang</button>
+            <button type="button" class="seg-btn cam-init-btn" data-cam="first">POV Depan</button>
+          </div>
+        </div>
+
+        <div class="setting-row">
+          <span class="setting-name">Sensitivitas Geser</span>
+          <div class="seg-group">
+            <button type="button" class="seg-btn sens-btn" data-sens="0.7">Pelan</button>
+            <button type="button" class="seg-btn sens-btn active" data-sens="1.0">Normal</button>
+            <button type="button" class="seg-btn sens-btn" data-sens="1.5">Cepat</button>
+          </div>
         </div>
       </div>
 
-      <button type="button" id="btn-start-game" class="start-btn">MULAI BUKA WARUNG</button>
-    </div>
-  </div>
-
-  <!-- CUTSCENE / LOADING PEMBUKA -->
-  <div id="cutscene-overlay" class="cutscene-overlay hidden">
-    <div class="cutscene-box">
-      <div class="studio-badge">RIFKI STUDIO</div>
-      <h2>MEMBUKA WARUNG</h2>
-      <p id="cutscene-text">Menyiapkan dapur & meja racik...</p>
-      <div class="progress-track">
-        <div id="cutscene-bar" class="progress-fill"></div>
+      <div class="lobby-footer-btns">
+        <button type="button" id="btn-start-game" class="start-main-btn">MULAI MAIN</button>
+        <button type="button" id="btn-switch-account" class="switch-acc-btn">Ganti Akun</button>
       </div>
     </div>
+
+    <div class="cinematic-badge">
+      <span class="rec-dot"></span> CINEMATIC 3D • WARUNG, JALAN RAYA &amp; KOTA
+    </div>
   </div>
 
-  <!-- LAYAR GAMEPLAY HUD -->
+  <!-- 4. LAYAR GAMEPLAY HUD -->
   <div id="game-screen" class="game-screen">
     <div class="hud-top">
       <div class="profile-pill">
@@ -103,7 +176,7 @@
           </div>
         </div>
 
-        <button type="button" id="btn-open-pause" class="pause-hud-btn" title="Pengaturan & Pause">⚙️</button>
+        <button type="button" id="btn-open-pause" class="pause-hud-btn" title="Pengaturan &amp; Pause">⚙️</button>
       </div>
     </div>
 
@@ -120,7 +193,7 @@
     <!-- DOCK MENU BAWAH -->
     <div class="hud-dock">
       <button type="button" id="btn-serve-customer" class="dock-btn primary">
-        <strong>Masak & Layani</strong>
+        <strong>Masak &amp; Layani</strong>
         <span id="hud-serve-sub">Stok: 13 | Antre: 0</span>
       </button>
       <button type="button" id="btn-open-phone" class="dock-btn">
@@ -129,7 +202,7 @@
       </button>
       <button type="button" id="btn-open-furniture" class="dock-btn">
         <strong>Hias Warung</strong>
-        <span>Bangku & Kipas</span>
+        <span>Bangku &amp; Kipas</span>
       </button>
       <button type="button" id="btn-open-cities" class="dock-btn">
         <strong>Keliling Kota</strong>
@@ -141,12 +214,12 @@
     <div id="pause-modal" class="modal-overlay hidden">
       <div class="modal-card">
         <div class="modal-header">
-          <h3>⚙️ Menu Pause & Pengaturan</h3>
+          <h3>⚙️ Menu Pause &amp; Pengaturan</h3>
           <button type="button" class="close-modal-btn" data-close-modal="pause-modal">Lanjut Main</button>
         </div>
 
         <div class="pause-section">
-          <span class="sec-label">Multiplayer Mabar & Voice Mic</span>
+          <span class="sec-label">Multiplayer Mabar &amp; Voice Mic</span>
           <div class="room-status">
             <span class="live-dot"></span>
             <span class="solo-badge" id="room-status-text">MODE SINGLEPLAYER</span>
@@ -168,7 +241,7 @@
         </div>
 
         <div class="pause-section">
-          <span class="sec-label">Data Warung & Keluar</span>
+          <span class="sec-label">Data Warung &amp; Keluar</span>
           <div class="pause-action-grid">
             <button type="button" id="btn-save-game" class="mini-btn save">💾 Simpan Progress</button>
             <button type="button" id="btn-back-lobby" class="mini-btn danger">🚪 Kembali ke Lobby</button>
@@ -181,7 +254,7 @@
     <div id="phone-shop-modal" class="modal-overlay hidden">
       <div class="modal-card">
         <div class="modal-header">
-          <h3>HP Juragan - Order Bahan Baku</h3>
+          <h3>📱 HP Juragan - Order Bahan Baku</h3>
           <button type="button" class="close-modal-btn" data-close-modal="phone-shop-modal">Tutup</button>
         </div>
         <div id="courier-status" class="courier-box">Kurir standby siap antar bahan ke dapur.</div>
@@ -193,7 +266,7 @@
     <div id="furniture-modal" class="modal-overlay hidden">
       <div class="modal-card">
         <div class="modal-header">
-          <h3>Katalog Furnitur & Pendingin</h3>
+          <h3>🪑 Katalog Furnitur &amp; Pendingin</h3>
           <button type="button" class="close-modal-btn" data-close-modal="furniture-modal">Tutup</button>
         </div>
         <div id="comfort-status" class="comfort-banner">Beli kipas atau AC biar pembeli makin betah!</div>
@@ -205,7 +278,7 @@
     <div id="cities-modal" class="modal-overlay hidden">
       <div class="modal-card">
         <div class="modal-header">
-          <h3>Peta Cabang Kota Nusantara</h3>
+          <h3>🗺️ Peta Cabang Kota Nusantara</h3>
           <button type="button" class="close-modal-btn" data-close-modal="cities-modal">Tutup</button>
         </div>
         <div id="cities-list" class="modal-list"></div>
